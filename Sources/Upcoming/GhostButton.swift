@@ -42,6 +42,33 @@ private struct GhostButtonBody<Label: View>: View {
     }
 }
 
+/// Caption box for instant hover tips — native `.help()` tooltips carry
+/// macOS's fixed ~1.5s delay. Positioning is the caller's job (anchor
+/// preference at the scroll-view level, so the tip draws above all rows;
+/// an in-place overlay loses the z-order fight with later siblings).
+struct HoverTipLabel: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            // 11pt = native macOS tooltip size (NSFont.toolTipsFont).
+            .font(.system(size: 11))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(.thickMaterial,
+                        in: RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+            )
+            .shadow(color: Color.black.opacity(0.12),
+                    radius: 6, x: 0, y: 2)
+            .fixedSize()
+            .allowsHitTesting(false)
+    }
+}
+
 extension View {
     /// Changes the cursor to a pointing hand while hovering this view so
     /// clickable controls read as clickable (macOS doesn't do this by

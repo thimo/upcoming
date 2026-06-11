@@ -8,6 +8,7 @@ struct MonthGridView: View {
     @Binding var displayedMonth: Date
     let dotColors: [Date: [CalendarColor]]
     let calendar: Calendar
+    @Environment(\.colorScheme) private var colorScheme
     /// Day at the top of the agenda list (grid-follows-list highlight);
     /// rendered as a grey circle, distinct from the blue today circle.
     let highlightedDay: Date?
@@ -33,12 +34,12 @@ struct MonthGridView: View {
         // title block instead of hanging off that (low) baseline.
         HStack {
             HStack(alignment: .firstTextBaseline) {
-                // Solid black on purpose: `.primary` gets washed grey by
-                // the panel's vibrancy. Spec: month black, year red
-                // (Fantastical).
+                // Explicit solid colour on purpose: `.primary` gets
+                // washed grey by the panel's vibrancy. Black/white per
+                // appearance; year red (Fantastical).
                 Text(monthName)
                     .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
                 Text(yearName)
                     .font(.system(size: 24, weight: .regular))
                     .foregroundStyle(.red)

@@ -61,17 +61,40 @@ public final class CalendarService: ObservableObject {
         }
     }
 
-    /// All calendars, for the Settings toggle list.
+    /// All calendars, for the Settings toggle list. Source order: iCloud
+    /// first (primary provider), Exchange last, everything else
+    /// alphabetical in between; calendars alphabetical within a source.
     public func calendars() -> [CalendarInfo] {
-        store.calendars(for: .event).map { cal in
-            CalendarInfo(
-                id: cal.calendarIdentifier,
-                title: cal.title,
-                sourceTitle: cal.source?.title ?? "",
-                color: CalendarColor(nsColor: cal.color)
-            )
-        }
-        .sorted { ($0.sourceTitle, $0.title) < ($1.sourceTitle, $1.title) }
+        store.calendars(for: .event)
+            .sorted { lhs, rhs in
+                let lp = Self.sourcePriority(lhs.source)
+                let rp = Self.sourcePriority(rhs.source)
+                if lp != rp { return lp < rp }
+                let ls = lhs.source?.title ?? ""
+                let rs = rhs.source?.title ?? ""
+                if ls != rs {
+                    return ls.localizedCaseInsensitiveCompare(rs) == .orderedAscending
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            .map { cal in
+                CalendarInfo(
+                    id: cal.calendarIdentifier,
+                    title: cal.title,
+                    sourceTitle: cal.source?.title ?? "",
+                    color: CalendarColor(nsColor: cal.color)
+                )
+            }
+    }
+
+    /// iCloud is a plain CalDAV source titled "iCloud" (no dedicated
+    /// type), so that one check is name-based; Exchange has a real
+    /// source type.
+    private nonisolated static func sourcePriority(_ source: EKSource?) -> Int {
+        guard let source else { return 1 }
+        if source.sourceType == .calDAV, source.title == "iCloud" { return 0 }
+        if source.sourceType == .exchange { return 2 }
+        return 1
     }
 
     /// Events in [from, to], excluding hidden calendars and meetings the

@@ -46,6 +46,8 @@ struct ContentView: View {
     /// Day section at the top of the agenda viewport; highlighted in the
     /// grid, and the grid follows it into other months.
     @State private var topVisibleDay: Date?
+    /// calendarID → title, for the combined all-day count pills.
+    @State private var calendarNames: [String: String] = [:]
 
     static let panelWidth: CGFloat = 320
     /// Initial window around today, and how it grows at the edges. A year
@@ -88,6 +90,8 @@ struct ContentView: View {
                     sections: sections,
                     calendar: calendar,
                     now: now,
+                    combinePills: config.combineAllDayPills,
+                    calendarNames: calendarNames,
                     scrollRequest: $scrollRequest,
                     onSectionAppear: sectionAppeared,
                     onTopDayChange: topDayChanged
@@ -211,6 +215,9 @@ struct ContentView: View {
             )
 
             guard generation == reloadGeneration else { return }
+            calendarNames = Dictionary(
+                uniqueKeysWithValues: calendarService.calendars().map { ($0.id, $0.title) }
+            )
             windowEvents = agendaEvents
             sections = EventGrouping.sections(
                 events: agendaEvents,

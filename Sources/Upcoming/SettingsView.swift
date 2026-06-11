@@ -53,6 +53,19 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.primary.opacity(0.60))
             }
 
+            Section {
+                Toggle(
+                    "Combine multiple all-day events from the same calendar",
+                    isOn: $config.combineAllDayPills
+                )
+            } header: {
+                Text("Agenda")
+            } footer: {
+                Text("Days where one calendar has several all-day events show a single count pill; click it to expand.")
+                    .font(.caption)
+                    .foregroundStyle(.primary.opacity(0.60))
+            }
+
             Section("Startup") {
                 Toggle("Open at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in

@@ -6,6 +6,17 @@ import UpcomingCore
 /// pills in their calendar colour; timed events get a colour dot, time
 /// range, title and location. Today's already-finished events are dimmed —
 /// past *days* (once backward scroll lands) stay at full colour.
+/// Bounds anchors of the collapsed count-pills, keyed by group key;
+/// the hover tip is drawn at the scroll-view level from these so it
+/// renders above every row (an in-pill overlay loses the z-order fight
+/// with later siblings) and can hang below the pill.
+private struct TipAnchorPreference: PreferenceKey {
+    static var defaultValue: [String: Anchor<CGRect>] = [:]
+    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
 /// Per-day section frames in the agenda scroll coordinate space; feeds
 /// the grid-follows-list highlight.
 private struct DayFramePreference: PreferenceKey {
@@ -34,6 +45,10 @@ struct AgendaListView: View {
     /// Reference clock for the dimmed-past-today cue; owned by the parent
     /// so rows re-evaluate on popup open even when the data didn't change.
     let now: Date
+    /// ≥2 all-day events from one calendar on one day → one count pill.
+    let combinePills: Bool
+    /// calendarID → display name, for count-pill labels.
+    let calendarNames: [String: String]
     /// Pending scroll command; cleared after scrolling. The parent arms
     /// its window-edge triggers on that clear.
     @Binding var scrollRequest: ScrollRequest?
@@ -43,6 +58,12 @@ struct AgendaListView: View {
     /// Reports the day section currently at the top of the viewport, so
     /// the month grid can highlight it and follow along (grid-follows-list).
     let onTopDayChange: (Date) -> Void
+
+    /// Count-pills the user clicked open, keyed day+calendarID. Cleared
+    /// on popup open, so every visit starts compact.
+    @State private var expandedGroups: Set<String> = []
+    /// Count-pill currently under the cursor (group key + tip text).
+    @State private var hoveredTip: (key: String, text: String)?
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -69,12 +90,32 @@ struct AgendaListView: View {
                             .onAppear { onSectionAppear(section.day) }
                     }
                 }
+                .padding(.horizontal, 12)
             }
-            // Margins instead of LazyVStack padding: scrollTo's .top
-            // anchor ignores stack padding (sections would land 12pt too
-            // high) but does respect content margins.
-            .contentMargins(12, for: .scrollContent)
+            // Vertical margins instead of LazyVStack padding: scrollTo's
+            // .top anchor ignores stack padding (sections would land 12pt
+            // too high) but does respect content margins. Horizontal is
+            // plain padding — a trailing content margin would inset the
+            // scroll indicator off the window edge.
+            .contentMargins(.vertical, 12, for: .scrollContent)
             .coordinateSpace(name: "agenda")
+            .onReceive(NotificationCenter.default.publisher(for: .popupDidOpen)) { _ in
+                expandedGroups = []
+                hoveredTip = nil
+            }
+            // Hover tip for count-pills, drawn at this level so it sits
+            // above all rows and hangs below the hovered pill.
+            .overlayPreferenceValue(TipAnchorPreference.self) { anchors in
+                GeometryReader { proxy in
+                    if let tip = hoveredTip, let anchor = anchors[tip.key] {
+                        let rect = proxy[anchor]
+                        HoverTipLabel(text: tip.text)
+                            .offset(x: rect.minX, y: rect.maxY + 4)
+                            .transition(.opacity)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.12), value: hoveredTip?.key)
+            }
             .onPreferenceChange(DayFramePreference.self) { frames in
                 // Topmost section still (partly) visible: the earliest day
                 // whose bottom edge sits below the viewport top. Sections
@@ -107,18 +148,37 @@ struct AgendaListView: View {
         }
     }
 
+    /// One entry in the pill flow: a regular pill, or a clicked-open
+    /// count pill's underlying events rendered individually.
+    private enum PillItem: Identifiable {
+        case single(EventItem)
+        case group(calendarID: String, events: [EventItem])
+
+        var id: String {
+            switch self {
+            case .single(let event): return event.id
+            case .group(let calendarID, _): return "group-\(calendarID)"
+            }
+        }
+    }
+
     private func daySection(_ section: DaySection) -> some View {
         // Birthdays get Fantastical's treatment: a gift-icon row between
         // the pills and the timed events, not an all-day pill.
-        let pills = section.allDay.filter { !$0.isBirthday }
         let birthdays = section.allDay.filter(\.isBirthday)
+        let items = pillItems(for: section)
 
         return VStack(alignment: .leading, spacing: 6) {
             dayHeader(section.day)
-            if !pills.isEmpty {
+            if !items.isEmpty {
                 FlowLayout(spacing: 3) {
-                    ForEach(pills) { event in
-                        allDayPill(event)
+                    ForEach(items) { item in
+                        switch item {
+                        case .single(let event):
+                            allDayPill(event)
+                        case .group(let calendarID, let events):
+                            groupPill(calendarID: calendarID, events: events, day: section.day)
+                        }
                     }
                 }
             }
@@ -129,6 +189,64 @@ struct AgendaListView: View {
                 timedRow(event, day: section.day)
             }
         }
+    }
+
+    /// Clusters the day's pills per calendar (first-appearance order).
+    /// ≥2 pills from one calendar collapse into a count pill unless the
+    /// user clicked that group open. Single pills are never touched.
+    private func pillItems(for section: DaySection) -> [PillItem] {
+        let pills = section.allDay.filter { !$0.isBirthday }
+        guard combinePills else { return pills.map { .single($0) } }
+
+        var order: [String] = []
+        var byCalendar: [String: [EventItem]] = [:]
+        for event in pills {
+            if byCalendar[event.calendarID] == nil {
+                order.append(event.calendarID)
+            }
+            byCalendar[event.calendarID, default: []].append(event)
+        }
+
+        return order.flatMap { calendarID -> [PillItem] in
+            let events = byCalendar[calendarID] ?? []
+            if events.count >= 2, !expandedGroups.contains(groupKey(section.day, calendarID)) {
+                return [.group(calendarID: calendarID, events: events)]
+            }
+            return events.map { .single($0) }
+        }
+    }
+
+    private func groupKey(_ day: Date, _ calendarID: String) -> String {
+        "\(day.timeIntervalSinceReferenceDate)-\(calendarID)"
+    }
+
+    /// Collapsed stand-in for a calendar's multiple all-day events:
+    /// "<calendar> · <count>" in the calendar colour. Click expands the
+    /// group for this day; hover previews the titles instantly.
+    private func groupPill(calendarID: String, events: [EventItem], day: Date) -> some View {
+        let name = calendarNames[calendarID] ?? "All-day"
+        let key = groupKey(day, calendarID)
+        return Text("\(name) · \(events.count)")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color(calendarColor: events.first?.color ?? CalendarColor(red: 0.5, green: 0.5, blue: 0.5)))
+            )
+            .onTapGesture {
+                hoveredTip = nil
+                expandedGroups.insert(key)
+            }
+            .anchorPreference(key: TipAnchorPreference.self, value: .bounds) { [key: $0] }
+            .onHover { hovering in
+                if hovering {
+                    hoveredTip = (key, events.map(\.title).joined(separator: "\n"))
+                } else if hoveredTip?.key == key {
+                    hoveredTip = nil
+                }
+            }
     }
 
     private func birthdayRow(_ event: EventItem) -> some View {

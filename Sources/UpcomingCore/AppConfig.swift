@@ -8,6 +8,7 @@ public final class AppConfig: ObservableObject {
         static let hiddenCalendarIDs = "hiddenCalendarIDs"
         static let notificationLeadMinutes = "notificationLeadMinutes"
         static let globalShortcut = "globalShortcut"
+        static let combineAllDayPills = "combineAllDayPills"
     }
 
     private let defaults: UserDefaults
@@ -43,8 +44,16 @@ public final class AppConfig: ObservableObject {
         }
     }
 
+    /// ≥2 all-day events from the same calendar on one day collapse into
+    /// a single count-pill in the agenda (default on). The rule only ever
+    /// hits noisy calendars; single pills are never touched.
+    @Published public var combineAllDayPills: Bool {
+        didSet { defaults.set(combineAllDayPills, forKey: Key.combineAllDayPills) }
+    }
+
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        self.combineAllDayPills = defaults.object(forKey: Key.combineAllDayPills) as? Bool ?? true
         self.hiddenCalendarIDs = Set(defaults.stringArray(forKey: Key.hiddenCalendarIDs) ?? [])
         let lead = defaults.integer(forKey: Key.notificationLeadMinutes)
         self.notificationLeadMinutes = lead == 0 ? 1 : max(0, lead)

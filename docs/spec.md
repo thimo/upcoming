@@ -14,7 +14,7 @@ Status: v0.1.0-skelet gebouwd (2026-06-11); dit document blijft de levende wense
   - Lijst scrollt **onbeperkt in beide richtingen** — omhoog het verleden in, omlaag de toekomst in (events lazy laden per datumvenster).
   - **Grid volgt de lijst:** de dag die bovenaan de lijst staat krijgt een highlight in het maandgrid (los van de blauwe vandaag-cirkel). Scrollen door de lijst beweegt die highlight mee.
   - Gedimd zijn **alleen de events van vandaag die al geweest zijn** — een "dit is al gebeurd"-cue binnen vandaag. Dagen in het verleden (gisteren en eerder) tonen gewoon op volle kleur.
-  - De licht-boven/donker-onder split is typisch Fantastical en geen must — alles light. (Open: dark mode van het systeem volgen, of altijd light?)
+  - De licht-boven/donker-onder split is typisch Fantastical en geen must. **Appearance volgt het systeem** (besloten 2026-06-11: dark mode beviel direct) — let op: titels/accenten die vibrancy omzeilen moeten expliciet per appearance kleuren (maandtitel: zwart in light, wit in dark).
 - **Tech: opzet erft van Uncommitted (`~/src/uncommitted`) + Clawbridge (`~/src/clawbridge`).** Niet opnieuw uitvinden:
   - **Popup = custom NSPanel met NSHostingView** (Uncommitted's `PopupPanel` in `AppDelegate.swift`) — NIET SwiftUI MenuBarExtra, NIET NSMenu. Let op: Uncommitted's CLAUDE.md zegt "NSMenu" maar de code is NSPanel — NSMenu's tracking loop breekt scrolling/right-click (fataal voor onze oneindige lijst), NSPopover kan zijn arrow niet kwijt. AppDelegate.swift als sjabloon: rounded-mask vibrancy, click-outside monitors, Space-switch dismiss.
   - **SPM-layout van Uncommitted:** Core-library (testbaar, framework-vrij) + dunne executable-shell + plain-Swift testrunner (geen XCTest op CLT-only toolchain).
@@ -29,6 +29,7 @@ Status: v0.1.0-skelet gebouwd (2026-06-11); dit document blijft de levende wense
 - **Declined meetings worden verborgen** — weg uit lijst én grid-dots.
 - **Meerdaagse events:** pill op elke dag waarop het event loopt (zoals Fantastical).
 - **Verjaardagen (systeem-verjaardagskalender) als rij met cadeau-icoon**, niet als all-day pill — Fantastical's weergave. Tussen de pills en de getimede events.
+- **≥2 all-day events van één kalender op één dag vouwen samen tot één telling-pill** ("kalendernaam · N", kalenderkleur). Klik klapt uit voor die dag (reset bij heropenen), hover toont de titels als tooltip. Raakt alleen ruizige kalenders — losse pills blijven altijd los. Globale toggle in Settings → General ("Combine multiple all-day events from the same calendar"), default aan; per-kalender granulariteit pas als de praktijk erom vraagt (besloten 2026-06-11).
 - **All-day pills: volledige titel, nooit afkappen.** Pills flowen horizontaal en wrappen naar de volgende regel als ze niet op één regel passen (FlowLayout in AgendaListView).
 - **Klik op dag in het grid → lijst scrollt naar die dag.** Dagen zonder events landen op de eerstvolgende dag mét events. (Beslist 2026-06-11; stond bij open keuzes.)
 - **Notificaties alleen voor events met een video-call link** — meldingen voor meetings waar je moet inbellen, de rest niet.
@@ -47,7 +48,6 @@ Status: v0.1.0-skelet gebouwd (2026-06-11); dit document blijft de levende wense
 
 ## Open keuzes
 
-- **Appearance:** systeemdark volgen, of altijd light?
 - **Andere weergaven:** alleen maandgrid, of ook week/dag?
 
 ## Wensen (aanvullen)
