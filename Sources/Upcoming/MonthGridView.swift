@@ -8,6 +8,9 @@ struct MonthGridView: View {
     @Binding var displayedMonth: Date
     let dotColors: [Date: [CalendarColor]]
     let calendar: Calendar
+    /// Day at the top of the agenda list (grid-follows-list highlight);
+    /// rendered as a grey circle, distinct from the blue today circle.
+    let highlightedDay: Date?
     /// Called when the user clicks a day cell (agenda jumps there).
     let onSelectDay: (Date) -> Void
 
@@ -26,26 +29,37 @@ struct MonthGridView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            // Solid black on purpose: `.primary` gets washed grey by the
-            // panel's vibrancy. Spec: month black, year red (Fantastical).
-            Text(monthName)
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(.black)
-            Text(yearName)
-                .font(.system(size: 24, weight: .regular))
-                .foregroundStyle(.red)
+        // Title texts share a baseline; the chevrons centre on the whole
+        // title block instead of hanging off that (low) baseline.
+        HStack {
+            HStack(alignment: .firstTextBaseline) {
+                // Solid black on purpose: `.primary` gets washed grey by
+                // the panel's vibrancy. Spec: month black, year red
+                // (Fantastical).
+                Text(monthName)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(.black)
+                Text(yearName)
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundStyle(.red)
+            }
             Spacer()
-            Button(action: { step(by: -1) }) {
-                Image(systemName: "chevron.left")
-            }
-            .buttonStyle(.borderless)
-            Button(action: { step(by: 1) }) {
-                Image(systemName: "chevron.right")
-            }
-            .buttonStyle(.borderless)
+            navButton("chevron.left") { step(by: -1) }
+            navButton("chevron.right") { step(by: 1) }
         }
         .padding(.bottom, 9)
+    }
+
+    /// Month-nav chevron with a comfortably clickable target and the
+    /// footer's hover treatment.
+    private func navButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 16, height: 20)
+        }
+        .buttonStyle(GhostButtonStyle())
+        .pointingHandCursor()
     }
 
     private func step(by months: Int) {
@@ -130,6 +144,10 @@ struct MonthGridView: View {
         let isToday = calendar.isDateInToday(day)
         let inMonth = calendar.isDate(day, equalTo: displayedMonth, toGranularity: .month)
         let dots = dotColors[calendar.startOfDay(for: day)] ?? []
+        // Today's blue circle wins over the list-position highlight.
+        let isHighlighted = !isToday && highlightedDay.map {
+            calendar.isDate(day, inSameDayAs: $0)
+        } == true
 
         // Dots sit tight under the number (Fantastical): no cell-internal
         // spacing, compact circle.
@@ -141,7 +159,11 @@ struct MonthGridView: View {
                 )
                 .frame(width: 20, height: 20)
                 .background(
-                    Circle().fill(isToday ? Color.accentColor : Color.clear)
+                    Circle().fill(
+                        isToday
+                            ? Color.accentColor
+                            : isHighlighted ? Color.primary.opacity(0.12) : Color.clear
+                    )
                 )
             HStack(spacing: 2) {
                 ForEach(Array(dots.prefix(Self.maxDots).enumerated()), id: \.offset) { _, color in

@@ -22,7 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var localMonitor: Any?
     private var keyMonitor: Any?
     private let hotkeyManager = HotkeyManager()
-    private var shortcutSubscription: AnyCancellable?
+    private let notificationScheduler = NotificationScheduler()
+    private var subscriptions = Set<AnyCancellable>()
 
     private static let cornerRadius: CGFloat = 10
 
@@ -59,12 +60,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeyManager.onTrigger = { [weak self] in
             self?.togglePopupFromHotkey()
         }
-        shortcutSubscription = config.$globalShortcut.sink { [weak self] shortcut in
+        config.$globalShortcut.sink { [weak self] shortcut in
             if let shortcut {
                 self?.hotkeyManager.register(shortcut)
             } else {
                 self?.hotkeyManager.unregister()
             }
+        }
+        .store(in: &subscriptions)
+
+        // Notifications before video meetings. Reschedule wholesale on
+        // every input change; the changeToken sink fires once on
+        // subscription, covering the initial schedule at launch.
+        notificationScheduler.setUp()
+        calendarService.$changeToken
+            .combineLatest(config.$notificationLeadMinutes, config.$hiddenCalendarIDs)
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.rescheduleNotifications()
+            }
+            .store(in: &subscriptions)
+
+        // The scheduling horizon is 48h; without changes or relaunches the
+        // pending set would silently run dry. Slow timer + wake-from-sleep
+        // keep it topped up (spec's sleep/wake-backstop pattern).
+        Timer.publish(every: 6 * 3600, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.rescheduleNotifications()
+            }
+            .store(in: &subscriptions)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(didWake(_:)),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func didWake(_ note: Notification) {
+        rescheduleNotifications()
+    }
+
+    /// Fetches the next 48h and re-schedules video-meeting notifications.
+    private func rescheduleNotifications() {
+        let lead = config.notificationLeadMinutes
+        let hidden = config.hiddenCalendarIDs
+        Task {
+            let now = Date()
+            let horizon = now.addingTimeInterval(48 * 3600)
+            let events = await calendarService.events(
+                from: now, to: horizon, hiddenCalendarIDs: hidden
+            )
+            notificationScheduler.schedule(events: events, leadMinutes: lead)
         }
     }
 
@@ -156,8 +204,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .environmentObject(calendarService)
             .environmentObject(config)
 
+        // No sizingOptions: the panel dictates the size (clamped in
+        // showPopup); the autolayout constraints stretch the SwiftUI
+        // content to fill it.
         let hosting = NSHostingController(rootView: AnyView(contentView))
-        hosting.sizingOptions = .intrinsicContentSize
         self.hostingController = hosting
 
         let panel = PopupPanel(
@@ -208,13 +258,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         closePopup()
     }
 
-    private func showPopup(from button: NSStatusBarButton) {
-        guard let panel, let hostingController else { return }
+    /// Breathing room kept below the popup (Fantastical leaves a similar
+    /// gap); the popup otherwise fills the screen's visible height.
+    private static let panelBottomMargin: CGFloat = 24
 
-        let hView = hostingController.view
-        hView.layoutSubtreeIfNeeded()
-        let fitting = hView.intrinsicContentSize
-        panel.setContentSize(fitting)
+    private func showPopup(from button: NSStatusBarButton) {
+        guard let panel else { return }
 
         guard let buttonWindow = button.window else { return }
         let buttonFrameInWindow = button.convert(button.bounds, to: nil)
@@ -223,6 +272,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let screen = NSScreen.screens.first(where: { $0.frame.contains(buttonFrameOnScreen.origin) })
             ?? NSScreen.main
         let visibleFrame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+
+        // Fill the screen's visible height bar a small bottom margin —
+        // scales with the display, never runs off a small or scaled
+        // screen; the agenda list inside flexes with it.
+        let fitting = NSSize(
+            width: ContentView.panelWidth,
+            height: visibleFrame.height - Self.panelBottomMargin
+        )
+        panel.setContentSize(fitting)
 
         let panelX = buttonFrameOnScreen.minX
         let panelY = visibleFrame.maxY - fitting.height - 1

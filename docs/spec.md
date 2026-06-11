@@ -27,11 +27,12 @@ Status: v0.1.0-skelet gebouwd (2026-06-11); dit document blijft de levende wense
 - **Geen Reminders.** Puur calendar.
 - **Declined meetings worden verborgen** — weg uit lijst én grid-dots.
 - **Meerdaagse events:** pill op elke dag waarop het event loopt (zoals Fantastical).
+- **Verjaardagen (systeem-verjaardagskalender) als rij met cadeau-icoon**, niet als all-day pill — Fantastical's weergave. Tussen de pills en de getimede events.
 - **All-day pills: volledige titel, nooit afkappen.** Pills flowen horizontaal en wrappen naar de volgende regel als ze niet op één regel passen (FlowLayout in AgendaListView).
 - **Klik op dag in het grid → lijst scrollt naar die dag.** Dagen zonder events landen op de eerstvolgende dag mét events. (Beslist 2026-06-11; stond bij open keuzes.)
 - **Notificaties alleen voor events met een video-call link** — meldingen voor meetings waar je moet inbellen, de rest niet.
 - **Settings: kalenderlijst met per-kalender aan/uit-toggle.** Eigen selectie, los van Calendar.app's zichtbaarheids-vinkjes. Uitgezette kalenders verdwijnen uit grid-dots én lijst.
-- **Notificatie X minuten voor aanvang** van een event (X instelbaar in settings). Eigen notificaties via UserNotifications, los van de alarms die Calendar.app zelf al doet.
+- **Notificatie X minuten voor aanvang** van een event (X instelbaar in settings via dropdown, default 1 minuut). Eigen notificaties via UserNotifications, los van de alarms die Calendar.app zelf al doet.
   - Heeft het event een video-call link, dan heeft de notificatie een klikbare join-actie die de juiste app opent (zelfde detectie als het video-icoon in de lijst).
 - **Video-call detectie:** events met een video-call link (Teams, Zoom, Meet, …) tonen een video-icoon; klik op het icoon opent de juiste app/link. Link zoeken in URL-veld, locatie en notes van het event.
 - **Teams-links openen direct in de Teams-app** via het `msteams:`-scheme (alleen corporate `teams.microsoft.com`-joins; browser-fallback als Teams niet geïnstalleerd is, `teams.live.com` blijft browser).

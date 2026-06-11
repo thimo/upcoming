@@ -16,9 +16,17 @@ public final class AppConfig: ObservableObject {
         didSet { defaults.set(Array(hiddenCalendarIDs), forKey: Key.hiddenCalendarIDs) }
     }
 
-    /// Minutes before an event with a video-call link to fire a notification.
+    /// Minutes before an event with a video-call link to fire a
+    /// notification; 0 = notifications off. Persisted as -1 when off,
+    /// because UserDefaults returns 0 for "never set" and that case must
+    /// fall back to the 1-minute default.
     @Published public var notificationLeadMinutes: Int {
-        didSet { defaults.set(notificationLeadMinutes, forKey: Key.notificationLeadMinutes) }
+        didSet {
+            defaults.set(
+                notificationLeadMinutes == 0 ? -1 : notificationLeadMinutes,
+                forKey: Key.notificationLeadMinutes
+            )
+        }
     }
 
     /// Global hotkey that toggles the popup. nil = explicitly cleared by
@@ -39,7 +47,7 @@ public final class AppConfig: ObservableObject {
         self.defaults = defaults
         self.hiddenCalendarIDs = Set(defaults.stringArray(forKey: Key.hiddenCalendarIDs) ?? [])
         let lead = defaults.integer(forKey: Key.notificationLeadMinutes)
-        self.notificationLeadMinutes = lead > 0 ? lead : 5
+        self.notificationLeadMinutes = lead == 0 ? 1 : max(0, lead)
         if let data = defaults.data(forKey: Key.globalShortcut) {
             self.globalShortcut = data.isEmpty
                 ? nil

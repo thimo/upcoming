@@ -39,6 +39,9 @@ public struct EventItem: Identifiable, Equatable {
     public let start: Date
     public let end: Date
     public let isAllDay: Bool
+    /// From the system Birthdays calendar; rendered as a gift-icon row
+    /// instead of an all-day pill (Fantastical's treatment).
+    public let isBirthday: Bool
     public let location: String?
     public let videoCallURL: URL?
 
@@ -50,6 +53,7 @@ public struct EventItem: Identifiable, Equatable {
         start: Date,
         end: Date,
         isAllDay: Bool,
+        isBirthday: Bool = false,
         location: String? = nil,
         videoCallURL: URL? = nil
     ) {
@@ -60,6 +64,7 @@ public struct EventItem: Identifiable, Equatable {
         self.start = start
         self.end = end
         self.isAllDay = isAllDay
+        self.isBirthday = isBirthday
         self.location = location
         self.videoCallURL = videoCallURL
     }

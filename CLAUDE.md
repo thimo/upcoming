@@ -16,22 +16,35 @@ adds wishes.
   feel with Thimo.
 - Working: status item (SF Symbol `calendar`, 17.5pt), NSPanel popup,
   month grid with CW column + per-calendar dots + today circle +
-  click-day-→-agenda-jumps, agenda list (today → +60 days) with wrapping
-  all-day pills (FlowLayout, full titles) / dimmed-past-today /
-  video-call icon, declined-meeting filtering, EventKit change refresh,
+  click-day-→-agenda-jumps, agenda list with bidirectional infinite
+  scroll (window starts at −365/+395 days around today, extends by 180 at
+  the edges; past-prepend re-anchors on the triggering day because
+  macOS 14 SwiftUI has no scroll anchoring), grid-follows-list highlight
+  (top visible day → grey circle in the grid, grid pages along into other
+  months; section frames via PreferenceKey), wrapping all-day pills
+  (FlowLayout, full titles) / dimmed-past-today / video-call icon,
+  declined-meeting filtering, EventKit change refresh,
   async background event fetch (popup must never block on EventKit —
   Exchange fetches take hundreds of ms), Teams links open in the Teams
   app (msteams: rewrite, browser fallback), escape + click-outside +
   Space-switch dismissal, right-click → Settings…/Quit, popup footer
   (gear → Settings, Quit), global hotkey ⌘⇧C (Carbon, recorder in
-  Settings), tabbed Settings via the SwiftUI `Settings` scene (General:
-  shortcut + launch at login; Calendars: per-calendar toggles grouped by
-  account; About). App lifecycle is SwiftUI App (`UpcomingApp.swift`, no
+  Settings), notifications X min (default 1, dropdown in Settings) before
+  events with a video-call link with Join action + tap-to-join
+  (NotificationScheduler; rescheduled wholesale on EventKit changes,
+  settings changes, wake, and a 6h timer; 48h horizon), tabbed Settings
+  via the SwiftUI `Settings` scene (General: shortcut + notifications +
+  launch at login; Calendars: per-calendar toggles grouped by account;
+  About). App lifecycle is SwiftUI App (`UpcomingApp.swift`, no
   main.swift) with NSApplicationDelegateAdaptor — Uncommitted's setup.
-- Not built yet (spec'd): bidirectional infinite agenda scroll (the +60d
-  window is a placeholder), grid-follows-list highlight, notification
-  lead-time setting + notifications X min before events with a call link
-  (with join action), day-number-in-icon menu bar glyph, app icon.
+- Perf invariants: month-grid dots inside the agenda window are served
+  from memory (byproduct of the agenda fetch; out-of-window months fetch
+  42 days on demand, cached per grid start), and window extensions fetch
+  only the new 180-day slice (`extendWindow`) — a full-window refetch per
+  extension gets seconds-slow after sustained scrolling. Re-opening the
+  popup resets a grown window to the initial size; that also keeps
+  LazyVStack scrollTo height estimation accurate.
+- Not built yet (spec'd): day-number-in-icon menu bar glyph, app icon.
 
 ## Build & install
 
@@ -74,13 +87,8 @@ Three SPM targets (pattern copied from `~/src/uncommitted`):
 
 ## Roadmap (rough order)
 
-1. Run + visually iterate on the popup (compare against the Fantastical
-   screenshot in the spec).
-2. Settings window: per-calendar toggles, notification lead time.
-3. Bidirectional infinite scroll + grid-follows-list highlight.
-4. Notifications (UserNotifications) with join action.
-5. Menu bar glyph with day number; app icon (make-icon.swift pattern).
-6. Distribution via GitHub: reuse Uncommitted's release.sh + Sparkle
+1. Menu bar glyph with day number; app icon (make-icon.swift pattern).
+2. Distribution via GitHub: reuse Uncommitted's release.sh + Sparkle
    pipeline.
 
 ## Conventions

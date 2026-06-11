@@ -35,6 +35,24 @@ struct GeneralSettingsView: View {
                 ShortcutRecorderRow(shortcut: $config.globalShortcut)
             }
 
+            Section {
+                Picker("Alert before video meetings", selection: $config.notificationLeadMinutes) {
+                    ForEach([0, 1, 2, 3, 5, 10, 15], id: \.self) { minutes in
+                        Text(
+                            minutes == 0 ? "None"
+                                : minutes == 1 ? "1 minute" : "\(minutes) minutes"
+                        )
+                        .tag(minutes)
+                    }
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text("Only events with a video-call link get an alert; the notification's Join button opens the call directly.")
+                    .font(.caption)
+                    .foregroundStyle(.primary.opacity(0.60))
+            }
+
             Section("Startup") {
                 Toggle("Open at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in
