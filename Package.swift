@@ -23,6 +23,9 @@ let package = Package(
         .executableTarget(
             name: "Upcoming",
             dependencies: ["UpcomingCore"],
+            resources: [
+                .process("Resources"),
+            ],
             swiftSettings: [
                 .swiftLanguageMode(.v5),
             ]

@@ -33,8 +33,22 @@ mkdir -p "$APP_STAGING/Contents/MacOS" "$APP_STAGING/Contents/Resources"
 cp "$BIN_SRC" "$APP_STAGING/Contents/MacOS/upcoming"
 cp Resources/Info.plist "$APP_STAGING/Contents/Info.plist"
 printf "APPL????" > "$APP_STAGING/Contents/PkgInfo"
-# TODO: iconset via Resources/make-icon.swift (Uncommitted pattern) once
-# the app has an icon design.
+echo "==> Generating app icon"
+# Compiled (not interpreted): the script shares CalendarGlyph.swift with
+# the app target, and `swift` can't interpret multi-file programs.
+swiftc -O Resources/make-icon.swift Sources/Upcoming/CalendarGlyph.swift -o build/make-icon
+build/make-icon build/Upcoming.iconset
+iconutil -c icns build/Upcoming.iconset -o "$APP_STAGING/Contents/Resources/Upcoming.icns"
+# Reviewable preview of the icon, checked into the repo.
+cp build/Upcoming.iconset/icon_512x512.png docs/icon.png
+
+# SPM produces a resource bundle next to the binary when a target declares
+# `resources:`. Copy it into the .app so Bundle.module resolves at runtime
+# (it hard-crashes when the bundle is missing).
+SPM_BUNDLE=".build/release/Upcoming_Upcoming.bundle"
+if [ -d "$SPM_BUNDLE" ]; then
+  cp -R "$SPM_BUNDLE" "$APP_STAGING/Contents/Resources/"
+fi
 
 echo "==> Signing with: $SIGN_ID"
 if ! security find-identity -p codesigning -v | grep -qF "$SIGN_ID"; then

@@ -130,14 +130,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
-            // Without an explicit configuration the symbol renders ~13pt,
-            // visibly smaller than neighbouring menu bar icons.
-            button.image = NSImage(
-                systemSymbolName: "calendar",
-                accessibilityDescription: "Upcoming"
-            )?.withSymbolConfiguration(
-                NSImage.SymbolConfiguration(pointSize: 17.5, weight: .regular)
-            )
+            // THE shared glyph (CalendarGlyph, same drawing as app icon
+            // and About tab) as a template image, so it follows the menu
+            // bar appearance.
+            button.image = CalendarGlyph.image(width: 17, isTemplate: true)
+            button.image?.accessibilityDescription = "Upcoming"
             button.target = self
             button.action = #selector(togglePopup(_:))
             // mouseDown so Bartender doesn't trigger its hidden bar.

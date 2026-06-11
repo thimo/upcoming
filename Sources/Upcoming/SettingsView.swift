@@ -284,6 +284,17 @@ private final class ShortcutRecorderState: ObservableObject {
 // MARK: - About
 
 struct AboutSettingsView: View {
+    /// GitHub's official mark, template-rendered so it follows the link
+    /// colour. (Uncommitted's asset, bundled via SPM resources.)
+    private static let githubMark: NSImage? = {
+        guard let url = Bundle.module.url(forResource: "github-mark", withExtension: "svg"),
+              let image = NSImage(contentsOf: url) else {
+            return nil
+        }
+        image.isTemplate = true
+        return image
+    }()
+
     private var version: String {
         let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
@@ -303,10 +314,24 @@ struct AboutSettingsView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "calendar")
-                .font(.system(size: 56, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.70))
-                .padding(.top, 28)
+            // THE shared glyph (CalendarGlyph, same drawing as app icon
+            // and menu bar), masked with the brand gradient —
+            // Uncommitted's About treatment (no squircle background
+            // here; that's the app icon's job).
+            LinearGradient(
+                colors: [
+                    Color(red: 0.878, green: 0.000, blue: 0.565), // #E00090
+                    Color(red: 0.537, green: 0.000, blue: 0.824), // #8900D2
+                    Color(red: 0.310, green: 0.000, blue: 1.000), // #4F00FF
+                ],
+                startPoint: .bottomLeading,
+                endPoint: .topTrailing
+            )
+            .mask {
+                Image(nsImage: CalendarGlyph.image(width: 90))
+            }
+            .frame(width: 90, height: 84)
+            .padding(.top, 28)
 
             VStack(spacing: 2) {
                 Text("Upcoming")
@@ -322,6 +347,31 @@ struct AboutSettingsView: View {
             Text("Your calendar, one click away.")
                 .font(.callout)
                 .foregroundStyle(.primary.opacity(0.70))
+
+            Link(destination: URL(string: "https://github.com/thimo/upcoming")!) {
+                HStack(spacing: 6) {
+                    if let mark = Self.githubMark {
+                        Image(nsImage: mark)
+                            .resizable()
+                            .frame(width: 14, height: 14)
+                    } else {
+                        Image(systemName: "arrow.up.right.square")
+                    }
+                    Text("github.com/thimo/upcoming")
+                }
+                .font(.callout)
+            }
+            .pointingHandCursor()
+            .padding(.top, 6)
+
+            // Manual check until the Sparkle pipeline lands (roadmap);
+            // Sparkle's updater takes over this button then.
+            Button("Check for Updates…") {
+                NSWorkspace.shared.open(
+                    URL(string: "https://github.com/thimo/upcoming/releases")!
+                )
+            }
+            .padding(.top, 2)
 
             Text("Built with ❤️ in the Netherlands by Thimo Jansen.")
                 .font(.caption)

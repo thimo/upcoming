@@ -88,7 +88,10 @@ Three SPM targets (pattern copied from `~/src/uncommitted`):
 ## Roadmap (rough order)
 
 1. Settings cleanup (layout/labels/ordering of the tabs).
-2. App icon (make-icon.swift pattern); menu bar glyph with day number.
+2. Menu bar glyph with day number. (App icon done: Resources/
+   make-icon.swift — Uncommitted's background recipe + palette, calendar
+   card glyph with punched dot grid, three dots glowing in the palette
+   colours.)
 3. README update/improve (exists but predates most of the feature work).
 4. Signed release binaries: notarized + stapled artifacts (dev builds are
    already Developer ID-signed; this is the distributable variant).

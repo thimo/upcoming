@@ -6,6 +6,8 @@
 	<string>Upcoming</string>
 	<key>CFBundleExecutable</key>
 	<string>upcoming</string>
+	<key>CFBundleIconFile</key>
+	<string>Upcoming</string>
 	<key>CFBundleIdentifier</key>
 	<string>nl.defrog.upcoming</string>
 	<key>CFBundleInfoDictionaryVersion</key>
