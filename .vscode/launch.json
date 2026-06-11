@@ -1,0 +1,44 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:upcoming}",
+      "name": "Debug upcoming",
+      "target": "upcoming",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug upcoming"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:upcoming}",
+      "name": "Release upcoming",
+      "target": "upcoming",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release upcoming"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:upcoming}",
+      "name": "Debug UpcomingTests",
+      "target": "UpcomingTests",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug UpcomingTests"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:upcoming}",
+      "name": "Release UpcomingTests",
+      "target": "UpcomingTests",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release UpcomingTests"
+    }
+  ]
+}

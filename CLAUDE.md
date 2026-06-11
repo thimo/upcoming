@@ -5,8 +5,9 @@ list, fed exclusively by EventKit (everything Calendar.app syncs, including
 Microsoft 365/Exchange — no own accounts, no OAuth). Replaces Dato (ugly)
 and Fantastical (can't reach the client's M365 tenant).
 
-**The spec lives at `~/vonk/research/menubar-calendar.md`** — wishlist,
-decided choices, and open questions. Read it before adding features.
+**The spec lives at `docs/spec.md`** — wishlist, decided choices, and open
+questions. Read it before adding features, and keep it updated when Thimo
+adds wishes.
 
 ## Current state
 
