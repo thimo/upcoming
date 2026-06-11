@@ -89,7 +89,10 @@ Three SPM targets (pattern copied from `~/src/uncommitted`):
 
 1. Settings cleanup (layout/labels/ordering of the tabs).
 2. App icon (make-icon.swift pattern); menu bar glyph with day number.
-3. Distribution via GitHub: reuse Uncommitted's release.sh + Sparkle
+3. README update/improve (exists but predates most of the feature work).
+4. Signed release binaries: notarized + stapled artifacts (dev builds are
+   already Developer ID-signed; this is the distributable variant).
+5. Distribution via GitHub: reuse Uncommitted's release.sh + Sparkle
    pipeline. Repo exists: github.com/thimo/upcoming (private).
 
 ## Conventions
