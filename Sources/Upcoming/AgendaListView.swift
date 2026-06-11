@@ -143,6 +143,15 @@ struct AgendaListView: View {
                 .font(.system(size: 12))
                 .lineLimit(1)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { open(event) }
+    }
+
+    /// Click on an event = show it in Calendar.app (read-only app; edits
+    /// happen there). Close the popup so Calendar isn't buried under it.
+    private func open(_ event: EventItem) {
+        CalendarAppOpener.show(event)
+        AppDelegate.shared?.closePopup()
     }
 
     private func dayHeader(_ day: Date) -> some View {
@@ -184,6 +193,7 @@ struct AgendaListView: View {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color(calendarColor: event.color))
             )
+            .onTapGesture { open(event) }
     }
 
     private func timedRow(_ event: EventItem, day: Date) -> some View {
@@ -223,6 +233,8 @@ struct AgendaListView: View {
             }
         }
         .opacity(isPastToday ? 0.45 : 1.0)
+        .contentShape(Rectangle())
+        .onTapGesture { open(event) }
     }
 
     private func timeString(_ date: Date) -> String {

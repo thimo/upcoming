@@ -44,8 +44,12 @@ struct MonthGridView: View {
                     .foregroundStyle(.red)
             }
             Spacer()
-            navButton("chevron.left") { step(by: -1) }
-            navButton("chevron.right") { step(by: 1) }
+            // Zero spacing: the ghost-button hover padding already
+            // separates the chevrons visually.
+            HStack(spacing: 0) {
+                navButton("chevron.left") { step(by: -1) }
+                navButton("chevron.right") { step(by: 1) }
+            }
         }
         .padding(.bottom, 9)
     }
@@ -88,8 +92,10 @@ struct MonthGridView: View {
         // Fantastical highlights the current weekday in the header row.
         let todayIndex = (calendar.component(.weekday, from: Date()) - calendar.firstWeekday + 7) % 7
         return HStack(spacing: 0) {
-            Text("CW")
-                .frame(width: 24)
+            // Week-number column keeps its width; the "CW" label proved
+            // more cryptic than helpful.
+            Color.clear
+                .frame(width: 24, height: 1)
             ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                 Text(symbol.uppercased())
                     .foregroundStyle(index == todayIndex ? Color.accentColor : Color.secondary)

@@ -8,7 +8,8 @@ Status: v0.1.0-skelet gebouwd (2026-06-11); dit document blijft de levende wense
 
 - **Databron: EventKit, en niets anders.** Leest alles wat Calendar.app al synct — inclusief het Microsoft 365-account van de klant. Geen eigen account-setup, geen OAuth.
 - **Design: heel dicht bij Fantastical** (screenshot 2026-06-11), maar **niet** de twee-tonen split — gewoon light:
-  - Maandgrid bovenin: weeknummer-kolom (CW), week start op maandag, per dag gekleurde dots per agenda die die dag items heeft, vandaag = gevulde blauwe cirkel (gehighlight), huidige week-rij subtiel gehighlight, ‹ › maandnavigatie, maand zwart + jaartal rood.
+  - Maandgrid bovenin: weeknummer-kolom (zonder kolomkop — het "CW"-label bleek cryptisch, weg per 2026-06-11), week start op maandag, per dag gekleurde dots per agenda die die dag items heeft, vandaag = gevulde blauwe cirkel (gehighlight), huidige week-rij subtiel gehighlight, ‹ › maandnavigatie, maand zwart + jaartal rood.
+- **Klik op event (lijst: getimed, pill of verjaardag) → opent het event in Calendar.app** via `ical://ekevent/<EKEvent-identifier>?method=show&options=more`, identifier **volledig percent-encoded** (subscription-UID's bevatten complete URL's met `#`); popup sluit daarbij. Empirisch vastgesteld 2026-06-11: de MeetingBar-variant met occurrence-timestamp is een doodlopende weg (UTC: geen navigatie; lokale tijd: verkeerde maand) — dus occurrences van recurring events zijn niet gericht aanstuurbaar, Calendar kiest zelf welke hij toont. Eigen detail-popover blijft een mogelijke latere fase (HoverDetailWindow-patroon van Uncommitted ligt klaar).
   - Agenda-lijst onderin: begint bij vandaag, gegroepeerd per dag (TODAY / TOMORROW / weekdag + datum), all-day events als pill in de kalenderkleur van hun agenda, getimede events met gekleurde dot, tijdrange, titel en locatie.
   - Lijst scrollt **onbeperkt in beide richtingen** — omhoog het verleden in, omlaag de toekomst in (events lazy laden per datumvenster).
   - **Grid volgt de lijst:** de dag die bovenaan de lijst staat krijgt een highlight in het maandgrid (los van de blauwe vandaag-cirkel). Scrollen door de lijst beweegt die highlight mee.
@@ -47,7 +48,6 @@ Status: v0.1.0-skelet gebouwd (2026-06-11); dit document blijft de levende wense
 ## Open keuzes
 
 - **Appearance:** systeemdark volgen, of altijd light?
-- **Klik op event in de lijst:** nog onbeslist. Voorstel Vonk: MVP klik → opent event in Calendar.app (`ical://ekevent/...`-route, vrijwel gratis); eigen detail-popover (notes/deelnemers) eventueel als latere fase. Fantastical doet beide.
 - **Andere weergaven:** alleen maandgrid, of ook week/dag?
 
 ## Wensen (aanvullen)

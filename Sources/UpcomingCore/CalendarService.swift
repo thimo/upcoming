@@ -132,6 +132,7 @@ public final class CalendarService: ObservableObject {
             end: event.endDate,
             isAllDay: event.isAllDay,
             isBirthday: event.calendar?.type == .birthday,
+            eventIdentifier: baseID,
             location: event.location?.trimmingCharacters(in: .whitespacesAndNewlines),
             videoCallURL: VideoCallDetector.detect(
                 url: event.url,
