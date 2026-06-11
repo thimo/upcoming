@@ -8,11 +8,13 @@ struct MonthGridView: View {
     @Binding var displayedMonth: Date
     let dotColors: [Date: [CalendarColor]]
     let calendar: Calendar
+    /// Called when the user clicks a day cell (agenda jumps there).
+    let onSelectDay: (Date) -> Void
 
     private static let maxDots = 4
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 3) {
             header
             weekdayRow
             ForEach(weeks, id: \.first) { week in
@@ -25,8 +27,11 @@ struct MonthGridView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
+            // Solid black on purpose: `.primary` gets washed grey by the
+            // panel's vibrancy. Spec: month black, year red (Fantastical).
             Text(monthName)
-                .font(.system(size: 24, weight: .bold))
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(.black)
             Text(yearName)
                 .font(.system(size: 24, weight: .regular))
                 .foregroundStyle(.red)
@@ -40,7 +45,7 @@ struct MonthGridView: View {
             }
             .buttonStyle(.borderless)
         }
-        .padding(.bottom, 2)
+        .padding(.bottom, 9)
     }
 
     private func step(by months: Int) {
@@ -66,11 +71,14 @@ struct MonthGridView: View {
     // MARK: - Grid
 
     private var weekdayRow: some View {
-        HStack(spacing: 0) {
+        // Fantastical highlights the current weekday in the header row.
+        let todayIndex = (calendar.component(.weekday, from: Date()) - calendar.firstWeekday + 7) % 7
+        return HStack(spacing: 0) {
             Text("CW")
                 .frame(width: 24)
-            ForEach(weekdaySymbols, id: \.self) { symbol in
+            ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                 Text(symbol.uppercased())
+                    .foregroundStyle(index == todayIndex ? Color.accentColor : Color.secondary)
                     .frame(maxWidth: .infinity)
             }
         }
@@ -79,9 +87,10 @@ struct MonthGridView: View {
     }
 
     private var weekdaySymbols: [String] {
-        let symbols = calendar.veryShortStandaloneWeekdaySymbols
-        // veryShortStandaloneWeekdaySymbols starts at Sunday; rotate to
-        // the calendar's firstWeekday (Monday).
+        // Three-letter day names ("MON"), not single letters.
+        let symbols = calendar.shortStandaloneWeekdaySymbols
+        // Symbols start at Sunday; rotate to the calendar's firstWeekday
+        // (Monday).
         let shift = calendar.firstWeekday - 1
         return Array(symbols[shift...] + symbols[..<shift])
     }
@@ -104,14 +113,13 @@ struct MonthGridView: View {
         return HStack(spacing: 0) {
             Text("\(calendar.component(.weekOfYear, from: week.first ?? Date()))")
                 .font(.system(size: 9))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(containsToday ? Color.accentColor : Color.secondary)
                 .frame(width: 24)
             ForEach(week, id: \.self) { day in
                 dayCell(day)
                     .frame(maxWidth: .infinity)
             }
         }
-        .padding(.vertical, 1)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(containsToday ? Color.primary.opacity(0.07) : Color.clear)
@@ -123,13 +131,15 @@ struct MonthGridView: View {
         let inMonth = calendar.isDate(day, equalTo: displayedMonth, toGranularity: .month)
         let dots = dotColors[calendar.startOfDay(for: day)] ?? []
 
-        return VStack(spacing: 2) {
+        // Dots sit tight under the number (Fantastical): no cell-internal
+        // spacing, compact circle.
+        return VStack(spacing: 0) {
             Text("\(calendar.component(.day, from: day))")
                 .font(.system(size: 12, weight: isToday ? .bold : .regular))
                 .foregroundStyle(
                     isToday ? Color.white : (inMonth ? Color.primary : Color.secondary.opacity(0.6))
                 )
-                .frame(width: 22, height: 22)
+                .frame(width: 20, height: 20)
                 .background(
                     Circle().fill(isToday ? Color.accentColor : Color.clear)
                 )
@@ -142,6 +152,8 @@ struct MonthGridView: View {
             }
             .frame(height: 4)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onSelectDay(day) }
     }
 }
 

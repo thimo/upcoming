@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import UpcomingCore
 
@@ -20,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var keyMonitor: Any?
+    private let hotkeyManager = HotkeyManager()
+    private var shortcutSubscription: AnyCancellable?
 
     private static let cornerRadius: CGFloat = 10
 
@@ -44,9 +47,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.shared = self
+        // LSUIElement in Info.plist covers bundle launches; .accessory also
+        // covers running the bare binary during development.
+        NSApp.setActivationPolicy(.accessory)
         setupStatusItem()
         setupPanel()
         calendarService.requestAccess()
+
+        // Global hotkey (default ⌘⇧C). The published-property sink also
+        // fires once on subscription, registering the initial shortcut.
+        hotkeyManager.onTrigger = { [weak self] in
+            self?.togglePopupFromHotkey()
+        }
+        shortcutSubscription = config.$globalShortcut.sink { [weak self] shortcut in
+            if let shortcut {
+                self?.hotkeyManager.register(shortcut)
+            } else {
+                self?.hotkeyManager.unregister()
+            }
+        }
+    }
+
+    private func togglePopupFromHotkey() {
+        guard let panel, let button = statusItem?.button else { return }
+        if panel.isVisible {
+            closePopup()
+        } else {
+            showPopup(from: button)
+        }
     }
 
     // MARK: - Status item
@@ -54,9 +82,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
+            // Without an explicit configuration the symbol renders ~13pt,
+            // visibly smaller than neighbouring menu bar icons.
             button.image = NSImage(
                 systemSymbolName: "calendar",
                 accessibilityDescription: "Upcoming"
+            )?.withSymbolConfiguration(
+                NSImage.SymbolConfiguration(pointSize: 17.5, weight: .regular)
             )
             button.target = self
             button.action = #selector(togglePopup(_:))
@@ -82,6 +114,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showContextMenu() {
         guard let button = statusItem?.button else { return }
         let menu = NSMenu()
+        let settings = NSMenuItem(
+            title: "Settings…",
+            action: #selector(openSettings),
+            keyEquivalent: ","
+        )
+        settings.target = self
+        menu.addItem(settings)
+        menu.addItem(.separator())
         let quit = NSMenuItem(
             title: "Quit Upcoming",
             action: #selector(quitApp),
@@ -90,6 +130,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quit.target = self
         menu.addItem(quit)
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.maxY + 4), in: button)
+    }
+
+    // MARK: - Settings window
+
+    @objc private func openSettings() {
+        closePopup()
+        // Accessory apps don't activate on their own; without this the
+        // Settings window opens behind whatever is frontmost.
+        NSApp.activate(ignoringOtherApps: true)
+        // Opens the SwiftUI `Settings` scene from AppKit. Soft-deprecated
+        // responder-chain selector, but the sanctioned `openSettings`
+        // environment value only exists inside SwiftUI views.
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
     @objc private func quitApp() {

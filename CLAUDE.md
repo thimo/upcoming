@@ -11,19 +11,27 @@ adds wishes.
 
 ## Current state
 
-- v0.1.0 skeleton, generated 2026-06-11 from the Vonk session that wrote
-  the spec. Compiles, but **not yet run/validated on a live menu bar** —
-  expect first-run iteration on layout and sizing.
-- Working: status item (SF Symbol `calendar`), NSPanel popup, month grid
-  with CW column + per-calendar dots + today circle, agenda list (today →
-  +60 days) with all-day pills / dimmed-past-today / video-call icon,
-  declined-meeting filtering, EventKit change refresh, escape +
-  click-outside + Space-switch dismissal, right-click → Quit.
+- v0.1.x, generated 2026-06-11 from the Vonk session that wrote the spec;
+  running live on the menu bar since the same day, iterating on look &
+  feel with Thimo.
+- Working: status item (SF Symbol `calendar`, 17.5pt), NSPanel popup,
+  month grid with CW column + per-calendar dots + today circle +
+  click-day-→-agenda-jumps, agenda list (today → +60 days) with wrapping
+  all-day pills (FlowLayout, full titles) / dimmed-past-today /
+  video-call icon, declined-meeting filtering, EventKit change refresh,
+  async background event fetch (popup must never block on EventKit —
+  Exchange fetches take hundreds of ms), Teams links open in the Teams
+  app (msteams: rewrite, browser fallback), escape + click-outside +
+  Space-switch dismissal, right-click → Settings…/Quit, popup footer
+  (gear → Settings, Quit), global hotkey ⌘⇧C (Carbon, recorder in
+  Settings), tabbed Settings via the SwiftUI `Settings` scene (General:
+  shortcut + launch at login; Calendars: per-calendar toggles grouped by
+  account; About). App lifecycle is SwiftUI App (`UpcomingApp.swift`, no
+  main.swift) with NSApplicationDelegateAdaptor — Uncommitted's setup.
 - Not built yet (spec'd): bidirectional infinite agenda scroll (the +60d
-  window is a placeholder), grid-follows-list highlight, Settings window
-  with per-calendar toggles (AppConfig.hiddenCalendarIDs is wired, no UI),
-  notifications X min before events with a call link (with join action),
-  day-number-in-icon menu bar glyph, launch at login, app icon.
+  window is a placeholder), grid-follows-list highlight, notification
+  lead-time setting + notifications X min before events with a call link
+  (with join action), day-number-in-icon menu bar glyph, app icon.
 
 ## Build & install
 

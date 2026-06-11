@@ -19,6 +19,21 @@ public enum VideoCallDetector {
         "facetime.apple.com/join",
     ]
 
+    /// Rewrites a corporate Teams join link to the `msteams:` deep-link
+    /// scheme so it opens straight in the Teams app instead of bouncing
+    /// through the browser. Returns nil for everything else — including
+    /// personal `teams.live.com` links, where the rewrite is unverified.
+    /// Callers must fall back to the original URL when nothing handles
+    /// `msteams:` (Teams not installed).
+    public static func teamsAppURL(for url: URL) -> URL? {
+        guard url.absoluteString.contains("teams.microsoft.com/l/meetup-join"),
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "https"
+        else { return nil }
+        components.scheme = "msteams"
+        return components.url
+    }
+
     public static func detect(url: URL?, location: String?, notes: String?) -> URL? {
         if let url, isCallLink(url) { return url }
         for text in [location, notes] {

@@ -97,6 +97,21 @@ expect(
     "URL field wins over notes"
 )
 
+expect(
+    VideoCallDetector.teamsAppURL(
+        for: URL(string: "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d")!
+    )?.absoluteString == "msteams://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%7d",
+    "rewrites Teams join link to msteams: scheme, query intact"
+)
+expect(
+    VideoCallDetector.teamsAppURL(for: URL(string: "https://zoom.us/j/123")!) == nil,
+    "no msteams rewrite for non-Teams links"
+)
+expect(
+    VideoCallDetector.teamsAppURL(for: URL(string: "https://teams.live.com/meet/123")!) == nil,
+    "no msteams rewrite for personal teams.live.com links"
+)
+
 // MARK: - EventGrouping.sections
 
 let from = date(2026, 6, 11)

@@ -1,5 +1,5 @@
 import AppKit
-import EventKit
+@preconcurrency import EventKit
 import Foundation
 
 /// EventKit wrapper. Reads whatever Calendar.app syncs (iCloud, Exchange /
@@ -18,7 +18,9 @@ public final class CalendarService: ObservableObject {
     /// re-fetch. Cheaper than diffing EventKit's coarse change notification.
     @Published public private(set) var changeToken = UUID()
 
-    private let store = EKEventStore()
+    // unsafe: EKEventStore is documented thread-safe but not Sendable-annotated;
+    // the background fetch in events(from:to:) relies on this.
+    private nonisolated(unsafe) let store = EKEventStore()
     private var observer: NSObjectProtocol?
 
     public init() {
@@ -74,24 +76,41 @@ public final class CalendarService: ObservableObject {
 
     /// Events in [from, to], excluding hidden calendars and meetings the
     /// user declined (spec: declined = gone from list and grid dots).
+    ///
+    /// Runs the EventKit query on a background queue — Exchange-backed
+    /// fetches take hundreds of ms and must never block the main thread
+    /// (the popup would visibly stall on open). EKEventStore is documented
+    /// thread-safe; the EKEvents stay on the fetch thread, only value-type
+    /// `EventItem`s cross back.
     public func events(
         from: Date,
         to: Date,
         hiddenCalendarIDs: Set<String>
-    ) -> [EventItem] {
+    ) async -> [EventItem] {
         guard authState == .authorized else { return [] }
+        nonisolated(unsafe) let store = store
 
-        let visible = store.calendars(for: .event)
-            .filter { !hiddenCalendarIDs.contains($0.calendarIdentifier) }
-        guard !visible.isEmpty else { return [] }
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let visible = store.calendars(for: .event)
+                    .filter { !hiddenCalendarIDs.contains($0.calendarIdentifier) }
+                guard !visible.isEmpty else {
+                    continuation.resume(returning: [])
+                    return
+                }
 
-        let predicate = store.predicateForEvents(withStart: from, end: to, calendars: visible)
-        return store.events(matching: predicate)
-            .filter { !isDeclinedByMe($0) }
-            .map(eventItem(from:))
+                let predicate = store.predicateForEvents(
+                    withStart: from, end: to, calendars: visible
+                )
+                let items = store.events(matching: predicate)
+                    .filter { !Self.isDeclinedByMe($0) }
+                    .map(Self.eventItem(from:))
+                continuation.resume(returning: items)
+            }
+        }
     }
 
-    private func isDeclinedByMe(_ event: EKEvent) -> Bool {
+    private nonisolated static func isDeclinedByMe(_ event: EKEvent) -> Bool {
         guard let attendees = event.attendees,
               let me = attendees.first(where: { $0.isCurrentUser }) else {
             return false
@@ -99,7 +118,7 @@ public final class CalendarService: ObservableObject {
         return me.participantStatus == .declined
     }
 
-    private func eventItem(from event: EKEvent) -> EventItem {
+    private nonisolated static func eventItem(from event: EKEvent) -> EventItem {
         // eventIdentifier is shared across occurrences of a recurring
         // event; the start timestamp disambiguates the occurrence.
         let baseID = event.eventIdentifier ?? UUID().uuidString
