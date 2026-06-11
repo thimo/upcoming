@@ -26,6 +26,25 @@ private struct DayFramePreference: PreferenceKey {
     }
 }
 
+/// Hover affordance for clickable agenda rows: the GhostButton hover
+/// fill, extended slightly past the row bounds (negative padding, so
+/// layout doesn't shift) plus the pointing-hand cursor.
+private struct RowHover: ViewModifier {
+    @State private var isHovered = false
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: interactiveCornerRadius)
+                    .fill(isHovered ? Color.primary.opacity(0.08) : Color.clear)
+                    .padding(.horizontal, -6)
+                    .padding(.vertical, -3)
+            )
+            .onHover { isHovered = $0 }
+            .pointingHandCursor()
+    }
+}
+
 /// One-shot scroll command for the agenda list. The token makes every
 /// request unique, so requesting the same day twice still fires onChange.
 struct ScrollRequest: Equatable {
@@ -239,6 +258,7 @@ struct AgendaListView: View {
                 hoveredTip = nil
                 expandedGroups.insert(key)
             }
+            .pointingHandCursor()
             .anchorPreference(key: TipAnchorPreference.self, value: .bounds) { [key: $0] }
             .onHover { hovering in
                 if hovering {
@@ -263,6 +283,7 @@ struct AgendaListView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { open(event) }
+        .modifier(RowHover())
     }
 
     /// Click on an event = show it in Calendar.app (read-only app; edits
@@ -312,6 +333,7 @@ struct AgendaListView: View {
                     .fill(Color(calendarColor: event.color))
             )
             .onTapGesture { open(event) }
+            .pointingHandCursor()
     }
 
     private func timedRow(_ event: EventItem, day: Date) -> some View {
@@ -353,6 +375,7 @@ struct AgendaListView: View {
         .opacity(isPastToday ? 0.45 : 1.0)
         .contentShape(Rectangle())
         .onTapGesture { open(event) }
+        .modifier(RowHover())
     }
 
     private func timeString(_ date: Date) -> String {
