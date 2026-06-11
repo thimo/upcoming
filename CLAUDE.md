@@ -87,9 +87,10 @@ Three SPM targets (pattern copied from `~/src/uncommitted`):
 
 ## Roadmap (rough order)
 
-1. Menu bar glyph with day number; app icon (make-icon.swift pattern).
-2. Distribution via GitHub: reuse Uncommitted's release.sh + Sparkle
-   pipeline.
+1. Settings cleanup (layout/labels/ordering of the tabs).
+2. App icon (make-icon.swift pattern); menu bar glyph with day number.
+3. Distribution via GitHub: reuse Uncommitted's release.sh + Sparkle
+   pipeline. Repo exists: github.com/thimo/upcoming (private).
 
 ## Conventions
 
