@@ -99,7 +99,11 @@ struct MonthGridView: View {
                 .frame(width: 24, height: 1)
             ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
                 Text(symbol.uppercased())
-                    .foregroundStyle(index == todayIndex ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(
+                        index == todayIndex
+                            ? Color.accentColor
+                            : Color.secondary.opacity(0.65)
+                    )
                     .frame(maxWidth: .infinity)
             }
         }
@@ -130,11 +134,15 @@ struct MonthGridView: View {
     }
 
     private func weekRow(_ week: [Date]) -> some View {
-        let containsToday = week.contains { calendar.isDateInToday($0) }
+        // The row highlight follows the list position (like the day ring),
+        // not today — "where am I looking", consistent with
+        // grid-follows-list. Falls back to today before the first scroll.
+        let anchor = highlightedDay ?? Date()
+        let containsAnchor = week.contains { calendar.isDate($0, inSameDayAs: anchor) }
         return HStack(spacing: 0) {
             Text("\(calendar.component(.weekOfYear, from: week.first ?? Date()))")
                 .font(.system(size: 9))
-                .foregroundStyle(containsToday ? Color.accentColor : Color.secondary)
+                .foregroundStyle(containsAnchor ? Color.accentColor : Color.secondary)
                 .frame(width: 24)
             ForEach(week, id: \.self) { day in
                 dayCell(day)
@@ -142,8 +150,12 @@ struct MonthGridView: View {
             }
         }
         .background(
+            // Negative padding: the highlight extends 1pt above/below and
+            // 2pt left/right of the row content without affecting layout.
             RoundedRectangle(cornerRadius: 6)
-                .fill(containsToday ? Color.primary.opacity(0.07) : Color.clear)
+                .fill(containsAnchor ? Color.primary.opacity(0.07) : Color.clear)
+                .padding(.vertical, -1)
+                .padding(.horizontal, -2)
         )
     }
 
@@ -156,21 +168,25 @@ struct MonthGridView: View {
             calendar.isDate(day, inSameDayAs: $0)
         } == true
 
-        // Dots sit tight under the number (Fantastical): no cell-internal
-        // spacing, compact circle.
-        return VStack(spacing: 0) {
+        // Both markers are rounded squares (one shape family; circles'
+        // bottoms land on the dot row): filled = today, ring = where the
+        // list is. They coincide when the list sits on today. 2pt air
+        // between cell and dots.
+        return VStack(spacing: 2) {
             Text("\(calendar.component(.day, from: day))")
                 .font(.system(size: 12, weight: isToday ? .bold : .regular))
                 .foregroundStyle(
                     isToday ? Color.white : (inMonth ? Color.primary : Color.secondary.opacity(0.6))
                 )
-                .frame(width: 20, height: 20)
+                .frame(width: 24, height: 21)
                 .background(
-                    Circle().fill(
-                        isToday
-                            ? Color.accentColor
-                            : isHighlighted ? Color.primary.opacity(0.12) : Color.clear
-                    )
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isToday ? Color.accentColor : Color.clear)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color.accentColor, lineWidth: 1.5)
+                        .opacity(isHighlighted ? 1 : 0)
                 )
             HStack(spacing: 2) {
                 ForEach(Array(dots.prefix(Self.maxDots).enumerated()), id: \.offset) { _, color in
