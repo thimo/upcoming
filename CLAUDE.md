@@ -93,10 +93,13 @@ Three SPM targets (pattern copied from `~/src/uncommitted`):
    card glyph with punched dot grid, three dots glowing in the palette
    colours.)
 3. README update/improve (exists but predates most of the feature work).
-4. Signed release binaries: notarized + stapled artifacts (dev builds are
-   already Developer ID-signed; this is the distributable variant).
-5. Distribution via GitHub: reuse Uncommitted's release.sh + Sparkle
-   pipeline. Repo exists: github.com/thimo/upcoming (private).
+4. Signed release binaries: release.sh staat (Uncommitted's pipeline:
+   universal build, notarize, staple, gh release; credentials in
+   .env.local, dry-run geverifieerd 2026-06-12) — eerste echte release
+   nog draaien.
+5. Distribution via GitHub: Sparkle-dependency + appcast activeren
+   (release.sh heeft de sectie al, guarded). Repo bestaat:
+   github.com/thimo/upcoming (private).
 
 ## Conventions
 
