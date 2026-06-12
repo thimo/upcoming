@@ -324,11 +324,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] event in
             guard let self, let panel = self.panel, panel.isVisible,
                   event.window == panel else { return event }
-            if event.keyCode == 53 { // escape
+            // Arrow keys step the agenda by a day; ⌘ makes it a week.
+            let step = event.modifierFlags.contains(.command) ? 7 : 1
+            switch event.keyCode {
+            case 53: // escape
                 self.closePopup()
                 return nil
+            case 124, 125: // right / down → forward
+                NotificationCenter.default.post(
+                    name: .navigateAgendaDay, object: nil, userInfo: ["delta": step])
+                return nil
+            case 123, 126: // left / up → backward
+                NotificationCenter.default.post(
+                    name: .navigateAgendaDay, object: nil, userInfo: ["delta": -step])
+                return nil
+            default:
+                return event
             }
-            return event
         }
     }
 
@@ -350,4 +362,6 @@ final class PopupPanel: NSPanel {
 extension Notification.Name {
     static let popupDidOpen = Notification.Name("UpcomingPopupDidOpen")
     static let popupDidClose = Notification.Name("UpcomingPopupDidClose")
+    /// Arrow-key day navigation; userInfo["delta"] is +1 or -1 days.
+    static let navigateAgendaDay = Notification.Name("UpcomingNavigateAgendaDay")
 }

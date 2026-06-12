@@ -134,6 +134,26 @@ struct ContentView: View {
                 reloadAgenda(resetWindow: true, scrollToDay: today)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateAgendaDay)) { note in
+            if let delta = note.userInfo?["delta"] as? Int {
+                navigateDay(by: delta)
+            }
+        }
+    }
+
+    /// Arrow-key navigation: scroll the agenda one day forward/backward
+    /// from the current view position. Empty days have no section, so
+    /// land on the nearest section in the travel direction (the generic
+    /// scroll handler only searches forward — backwards would stick).
+    private func navigateDay(by delta: Int) {
+        let anchor = topVisibleDay ?? calendar.startOfDay(for: Date())
+        guard let target = calendar.date(byAdding: .day, value: delta, to: anchor) else { return }
+        let destination = delta > 0
+            ? sections.first(where: { $0.day >= target })?.day
+            : sections.last(where: { $0.day <= target })?.day
+        if let destination, destination != anchor {
+            scrollRequest = ScrollRequest(day: destination, animated: true)
+        }
     }
 
     /// Bottom bar: gear → Settings, Quit on the right (Uncommitted's footer).
