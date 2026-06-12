@@ -11,6 +11,27 @@ public struct CalendarColor: Equatable, Hashable {
         self.green = green
         self.blue = blue
     }
+
+    /// Hue (0–1), saturation and brightness — the pill styling derives
+    /// its fill/text colours by transforming these.
+    public var hsb: (hue: Double, saturation: Double, brightness: Double) {
+        let mx = max(red, green, blue)
+        let mn = min(red, green, blue)
+        let delta = mx - mn
+        guard mx > 0, delta > 0 else { return (0, 0, mx) }
+
+        var hue: Double
+        if mx == red {
+            hue = (green - blue) / delta
+        } else if mx == green {
+            hue = 2 + (blue - red) / delta
+        } else {
+            hue = 4 + (red - green) / delta
+        }
+        hue /= 6
+        if hue < 0 { hue += 1 }
+        return (hue, delta / mx, mx)
+    }
 }
 
 /// One calendar as shown in Settings (per-calendar on/off toggle).

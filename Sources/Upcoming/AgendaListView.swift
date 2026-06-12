@@ -282,7 +282,7 @@ struct AgendaListView: View {
                 .foregroundStyle(.red)
                 .frame(width: 8)
             Text(event.title)
-                .font(.system(size: 12))
+                .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
         }
         .contentShape(Rectangle())
@@ -369,26 +369,27 @@ struct AgendaListView: View {
                 .font(.system(size: 8, weight: .bold))
     }
 
-    /// Apple Calendar pill styling: a light tint of the calendar colour
-    /// with the text in a darker (light mode) / lighter (dark mode)
-    /// variant of that same colour, instead of white-on-saturated.
-    /// Values run deeper than Apple's on-white ones because the panel's
-    /// vibrancy washes both fill and text out.
+    /// Apple Calendar pill styling, fitted against native-resolution
+    /// screen captures of Calendar (2026-06-12; brown matches per-pixel,
+    /// blue/yellow within a few values): both fill and text keep the
+    /// calendar colour's hue and transform saturation/brightness in HSB.
+    /// Colours are OPAQUE on purpose — alpha tints sink into the panel's
+    /// grey vibrancy material and can never reach Apple's lightness.
+    /// Dark mode values are untuned estimates (no reference measured).
     private func pillTextColor(_ color: CalendarColor) -> Color {
+        let (h, s, b) = color.hsb
         if colorScheme == .dark {
-            let f = 0.68
-            return Color(
-                red: color.red + (1 - color.red) * f,
-                green: color.green + (1 - color.green) * f,
-                blue: color.blue + (1 - color.blue) * f
-            )
+            return Color(hue: h, saturation: s * 0.65, brightness: min(1, b * 0.6 + 0.55))
         }
-        let f = 0.42
-        return Color(red: color.red * f, green: color.green * f, blue: color.blue * f)
+        return Color(hue: h, saturation: min(1, s * 1.3), brightness: b * 0.5)
     }
 
     private func pillFillColor(_ color: CalendarColor) -> Color {
-        Color(calendarColor: color).opacity(colorScheme == .dark ? 0.38 : 0.28)
+        let (h, s, b) = color.hsb
+        if colorScheme == .dark {
+            return Color(hue: h, saturation: s * 0.45, brightness: 0.18 + b * 0.16)
+        }
+        return Color(hue: h, saturation: s * 0.22, brightness: 1 - (1 - b) * 0.33)
     }
 
     private func timedRow(_ event: EventItem, day: Date) -> some View {
@@ -406,7 +407,7 @@ struct AgendaListView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text(event.title)
-                    .font(.system(size: 12))
+                    .font(.system(size: 12, weight: .medium))
                     // Pending invitations render their title grey, like
                     // the text on Calendar's hatched blocks.
                     .foregroundStyle(event.isPendingInvitation ? .secondary : .primary)
