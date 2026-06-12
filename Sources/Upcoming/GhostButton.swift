@@ -13,6 +13,48 @@ struct GhostButtonStyle: ButtonStyle {
     }
 }
 
+/// Apple Calendar-style nav button: a constant soft-grey fill in the
+/// given shape (not hover-only like GhostButton), darkening on hover
+/// and press.
+struct CalendarNavButtonStyle<S: Shape>: ButtonStyle {
+    let shape: S
+
+    func makeBody(configuration: Configuration) -> some View {
+        CalendarNavButtonBody(
+            label: configuration.label,
+            isPressed: configuration.isPressed,
+            shape: shape
+        )
+    }
+}
+
+private struct CalendarNavButtonBody<Label: View, S: Shape>: View {
+    let label: Label
+    let isPressed: Bool
+    let shape: S
+    @State private var isHovered = false
+
+    var body: some View {
+        label
+            .background(
+                shape
+                    .fill(fill)
+                    .animation(.easeOut(duration: 0.2), value: isPressed)
+                    .animation(.easeOut(duration: 0.2), value: isHovered)
+            )
+            .contentShape(shape)
+            .onHover { isHovered = $0 }
+    }
+
+    private var fill: Color {
+        // Explicit-ish opacities tuned to stay visible through the
+        // panel's vibrancy (subtler values disappear into the material).
+        if isPressed { return Color.primary.opacity(0.22) }
+        if isHovered { return Color.primary.opacity(0.16) }
+        return Color.primary.opacity(0.10)
+    }
+}
+
 private struct GhostButtonBody<Label: View>: View {
     let label: Label
     let isPressed: Bool

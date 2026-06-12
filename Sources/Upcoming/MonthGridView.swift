@@ -33,37 +33,56 @@ struct MonthGridView: View {
         // Title texts share a baseline; the chevrons centre on the whole
         // title block instead of hanging off that (low) baseline.
         HStack {
-            HStack(alignment: .firstTextBaseline) {
-                // Explicit solid colour on purpose: `.primary` gets
-                // washed grey by the panel's vibrancy. Black/white per
-                // appearance; year red (Fantastical).
-                Text(monthName)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(colorScheme == .dark ? .white : .black)
-                Text(yearName)
-                    .font(.system(size: 24, weight: .regular))
-                    .foregroundStyle(.red)
-            }
-            Spacer()
-            // Zero spacing: the ghost-button hover padding already
-            // separates the chevrons visually.
-            HStack(spacing: 0) {
+            // Apple Calendar styling: month bold, year light, one colour.
+            // Single concatenated Text so the scale-factor safety net for
+            // long month names shrinks month and year together (separate
+            // Texts scale independently — the year ends up bigger).
+            // Explicit solid colour on purpose — `.primary` gets washed
+            // out by the panel's vibrancy.
+            (Text(monthName).fontWeight(.bold)
+                + Text(" ")
+                + Text(yearName).fontWeight(.light))
+                .font(.system(size: 26))
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer(minLength: 8)
+            // Apple Calendar's ‹ Today › cluster: circular chevron
+            // buttons flanking a capsule Today button.
+            HStack(spacing: 4) {
                 navButton("chevron.left") { step(by: -1) }
+                todayButton
                 navButton("chevron.right") { step(by: 1) }
             }
         }
-        .padding(.bottom, 9)
+        .padding(.bottom, 12)
     }
 
-    /// Month-nav chevron with a comfortably clickable target and the
-    /// footer's hover treatment.
+    /// Month-nav chevron in a circular grey button (Apple Calendar).
     private func navButton(_ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 16, height: 20)
+                .font(.system(size: 11, weight: .semibold))
+                .frame(width: 22, height: 22)
         }
-        .buttonStyle(GhostButtonStyle())
+        .buttonStyle(CalendarNavButtonStyle(shape: Circle()))
+        .pointingHandCursor()
+    }
+
+    /// Capsule Today button between the chevrons: snaps the grid back to
+    /// the current month and scrolls the agenda to today.
+    private var todayButton: some View {
+        Button {
+            let today = calendar.startOfDay(for: Date())
+            displayedMonth = today
+            onSelectDay(today)
+        } label: {
+            Text("Today")
+                .font(.system(size: 12))
+                .padding(.horizontal, 10)
+                .frame(height: 22)
+        }
+        .buttonStyle(CalendarNavButtonStyle(shape: Capsule()))
         .pointingHandCursor()
     }
 
