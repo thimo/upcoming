@@ -42,6 +42,8 @@ public struct EventItem: Identifiable, Equatable {
     /// From the system Birthdays calendar; rendered as a gift-icon row
     /// instead of an all-day pill (Fantastical's treatment).
     public let isBirthday: Bool
+    /// Has a recurrence rule; rendered with Apple Calendar's ⟳ marker.
+    public let isRecurring: Bool
     /// Raw EKEvent identifier (shared across occurrences of a recurring
     /// event, unlike `id`); needed for the ical://ekevent/ deep link
     /// that opens the event in Calendar.app.
@@ -58,6 +60,7 @@ public struct EventItem: Identifiable, Equatable {
         end: Date,
         isAllDay: Bool,
         isBirthday: Bool = false,
+        isRecurring: Bool = false,
         eventIdentifier: String = "",
         location: String? = nil,
         videoCallURL: URL? = nil
@@ -70,6 +73,7 @@ public struct EventItem: Identifiable, Equatable {
         self.end = end
         self.isAllDay = isAllDay
         self.isBirthday = isBirthday
+        self.isRecurring = isRecurring
         self.eventIdentifier = eventIdentifier
         self.location = location
         self.videoCallURL = videoCallURL

@@ -109,30 +109,26 @@ struct MonthGridView: View {
     // MARK: - Grid
 
     private var weekdayRow: some View {
-        // Fantastical highlights the current weekday in the header row.
-        let todayIndex = (calendar.component(.weekday, from: Date()) - calendar.firstWeekday + 7) % 7
-        return HStack(spacing: 0) {
+        // Apple Calendar's mini-month style: single letters, quiet grey,
+        // no highlight on the current weekday (the today marker in the
+        // grid already does that job).
+        HStack(spacing: 0) {
             // Week-number column keeps its width; the "CW" label proved
             // more cryptic than helpful.
             Color.clear
                 .frame(width: 24, height: 1)
-            ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
-                Text(symbol.uppercased())
-                    .foregroundStyle(
-                        index == todayIndex
-                            ? Color.accentColor
-                            : Color.secondary.opacity(0.65)
-                    )
+            ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
+                Text(symbol)
                     .frame(maxWidth: .infinity)
             }
         }
-        .font(.system(size: 9, weight: .semibold))
+        .font(.system(size: 10, weight: .semibold))
         .foregroundStyle(.secondary)
     }
 
     private var weekdaySymbols: [String] {
-        // Three-letter day names ("MON"), not single letters.
-        let symbols = calendar.shortStandaloneWeekdaySymbols
+        // Single letters (M T W T F S S), Apple Calendar's mini-month.
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
         // Symbols start at Sunday; rotate to the calendar's firstWeekday
         // (Monday).
         let shift = calendar.firstWeekday - 1

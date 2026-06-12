@@ -78,6 +78,7 @@ struct AgendaListView: View {
     /// the month grid can highlight it and follow along (grid-follows-list).
     let onTopDayChange: (Date) -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     /// Count-pills the user clicked open, keyed day+calendarID. Cleared
     /// on popup open, so every visit starts compact.
     @State private var expandedGroups: Set<String> = []
@@ -245,14 +246,17 @@ struct AgendaListView: View {
     private func groupPill(calendarID: String, events: [EventItem], day: Date) -> some View {
         let name = calendarNames[calendarID] ?? "All-day"
         let key = groupKey(day, calendarID)
+        let color = events.first?.color ?? CalendarColor(red: 0.5, green: 0.5, blue: 0.5)
         return Text("\(name) · \(events.count)")
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 6)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(pillTextColor(color))
+            .padding(.horizontal, 7)
             .padding(.vertical, 2)
             .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(calendarColor: events.first?.color ?? CalendarColor(red: 0.5, green: 0.5, blue: 0.5)))
+                // Capsule for the normal single-line pill; the rounded
+                // rect keeps corners sane when a long title wraps.
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(pillFillColor(color))
             )
             .onTapGesture {
                 hoveredTip = nil
@@ -294,12 +298,16 @@ struct AgendaListView: View {
     }
 
     private func dayHeader(_ day: Date) -> some View {
+        // Apple Calendar register: today's label in red, everything else
+        // quiet grey, with a natural date ("12 June 2026") instead of the
+        // Fantastical-era 12/06/2026.
         let formatter = DateFormatter()
         formatter.calendar = calendar
-        formatter.dateFormat = "dd/MM/yyyy"
+        formatter.setLocalizedDateFormatFromTemplate("d MMMM y")
 
+        let isToday = calendar.isDateInToday(day)
         let name: String
-        if calendar.isDateInToday(day) {
+        if isToday {
             name = "TODAY"
         } else if calendar.isDateInTomorrow(day) {
             name = "TOMORROW"
@@ -313,7 +321,9 @@ struct AgendaListView: View {
         return HStack(spacing: 5) {
             Text(name)
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(calendar.isDateInToday(day) ? Color.accentColor : .primary)
+                // Deeper than systemRed: vibrancy washes that to salmon.
+                .foregroundStyle(isToday
+                    ? Color(red: 0.85, green: 0.12, blue: 0.10) : .secondary)
             Text(formatter.string(from: day))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -323,17 +333,58 @@ struct AgendaListView: View {
     private func allDayPill(_ event: EventItem) -> some View {
         // Full title, never truncated: pills flow and wrap via FlowLayout;
         // a title wider than the panel wraps inside its own pill.
-        Text(event.title)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 6)
+        pillLabel(event.title, isRecurring: event.isRecurring)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(pillTextColor(event.color))
+            .padding(.horizontal, 7)
             .padding(.vertical, 2)
             .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color(calendarColor: event.color))
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(pillFillColor(event.color))
             )
             .onTapGesture { open(event) }
             .pointingHandCursor()
+    }
+
+    /// Apple Calendar's recurrence glyph: the thin two-arrow circle.
+    /// SF Symbols 6 (macOS 15) name, with the closest older glyph as
+    /// fallback for the macOS 14 deployment target.
+    static let recurrenceSymbol: String =
+        NSImage(systemSymbolName: "arrow.trianglehead.2.clockwise",
+                accessibilityDescription: nil) != nil
+            ? "arrow.trianglehead.2.clockwise"
+            : "arrow.triangle.2.circlepath"
+
+    /// Pill title with Apple Calendar's inline ⟳ for recurring events;
+    /// concatenated Text so the marker flows with the (wrappable) title.
+    private func pillLabel(_ title: String, isRecurring: Bool) -> Text {
+        guard isRecurring else { return Text(title) }
+        return Text(title)
+            + Text(" ")
+            + Text(Image(systemName: Self.recurrenceSymbol))
+                .font(.system(size: 8, weight: .bold))
+    }
+
+    /// Apple Calendar pill styling: a light tint of the calendar colour
+    /// with the text in a darker (light mode) / lighter (dark mode)
+    /// variant of that same colour, instead of white-on-saturated.
+    /// Values run deeper than Apple's on-white ones because the panel's
+    /// vibrancy washes both fill and text out.
+    private func pillTextColor(_ color: CalendarColor) -> Color {
+        if colorScheme == .dark {
+            let f = 0.68
+            return Color(
+                red: color.red + (1 - color.red) * f,
+                green: color.green + (1 - color.green) * f,
+                blue: color.blue + (1 - color.blue) * f
+            )
+        }
+        let f = 0.42
+        return Color(red: color.red * f, green: color.green * f, blue: color.blue * f)
+    }
+
+    private func pillFillColor(_ color: CalendarColor) -> Color {
+        Color(calendarColor: color).opacity(colorScheme == .dark ? 0.38 : 0.28)
     }
 
     private func timedRow(_ event: EventItem, day: Date) -> some View {
@@ -361,6 +412,12 @@ struct AgendaListView: View {
                 }
             }
             Spacer(minLength: 0)
+            if event.isRecurring {
+                Image(systemName: Self.recurrenceSymbol)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 3)
+            }
             if let url = event.videoCallURL {
                 Button {
                     VideoCallOpener.open(url)

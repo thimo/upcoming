@@ -155,6 +155,7 @@ public final class CalendarService: ObservableObject {
             end: event.endDate,
             isAllDay: event.isAllDay,
             isBirthday: event.calendar?.type == .birthday,
+            isRecurring: event.hasRecurrenceRules,
             eventIdentifier: baseID,
             location: event.location?.trimmingCharacters(in: .whitespacesAndNewlines),
             videoCallURL: VideoCallDetector.detect(
