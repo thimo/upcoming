@@ -560,18 +560,24 @@ struct AgendaListView: View {
                 }
             }
             Spacer(minLength: 0)
+            // Both trailing icons share the time line's height so they
+            // centre on it together (the row HStack is top-aligned).
             if event.isRecurring {
                 Image(systemName: Self.recurrenceSymbol)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
-                    .padding(.top, 3)
+                    .frame(height: 15)
             }
             if let url = event.videoCallURL {
                 Button {
                     VideoCallOpener.open(url)
                 } label: {
-                    Image(systemName: "video.fill")
+                    // Outlined like Apple Calendar's video marker, not
+                    // the louder filled variant.
+                    Image(systemName: "video")
+                        .font(.system(size: 11))
                         .foregroundStyle(Color.accentColor)
+                        .frame(height: 15)
                 }
                 .buttonStyle(.borderless)
                 .help("Join video call")
