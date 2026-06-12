@@ -172,6 +172,7 @@ public final class CalendarService: ObservableObject {
             isBirthday: event.calendar?.type == .birthday,
             isRecurring: event.hasRecurrenceRules,
             isPendingInvitation: isPendingInvitation(event),
+            isTentative: myParticipantStatus(event) == .tentative,
             eventIdentifier: baseID,
             location: event.location?.trimmingCharacters(in: .whitespacesAndNewlines),
             videoCallURL: VideoCallDetector.detect(

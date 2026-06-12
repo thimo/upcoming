@@ -339,7 +339,14 @@ struct AgendaListView: View {
             .background(
                 ZStack {
                     let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    if event.isPendingInvitation {
+                    if event.isTentative {
+                        // Maybe: hatch in the calendar tint (Calendar's
+                        // tentative treatment).
+                        shape.fill(tentativeFieldColor(event.color))
+                        DiagonalStripes()
+                            .fill(tentativeStripeColor(event.color))
+                            .clipShape(shape)
+                    } else if event.isPendingInvitation {
                         // Unanswered invitation: grey hatch instead of the
                         // tint (Calendar's treatment); text keeps colour.
                         shape.fill(Color.primary.opacity(0.04))
@@ -377,23 +384,21 @@ struct AgendaListView: View {
     /// transform below. Keyed by the calendar's EventKit sRGB colour.
     private struct MeasuredPill {
         let base: CalendarColor
-        let fillLight: Color
-        let textLight: Color
-        let fillDark: Color
-        let textDark: Color
+        // Component tuples on a 0–255 scale, in Display P3.
+        let fillLight: (Double, Double, Double)
+        let textLight: (Double, Double, Double)
+        let fillDark: (Double, Double, Double)
+        let textDark: (Double, Double, Double)
 
         init(base: (Double, Double, Double),
              fillLight: (Double, Double, Double), textLight: (Double, Double, Double),
              fillDark: (Double, Double, Double), textDark: (Double, Double, Double)) {
             self.base = CalendarColor(
                 red: base.0 / 255, green: base.1 / 255, blue: base.2 / 255)
-            func p3(_ v: (Double, Double, Double)) -> Color {
-                Color(.displayP3, red: v.0 / 255, green: v.1 / 255, blue: v.2 / 255)
-            }
-            self.fillLight = p3(fillLight)
-            self.textLight = p3(textLight)
-            self.fillDark = p3(fillDark)
-            self.textDark = p3(textDark)
+            self.fillLight = fillLight
+            self.textLight = textLight
+            self.fillDark = fillDark
+            self.textDark = textDark
         }
     }
 
@@ -412,18 +417,48 @@ struct AgendaListView: View {
                      fillDark: (77, 66, 6), textDark: (255, 214, 0)),
     ]
 
-    private func measuredPill(for color: CalendarColor) -> (fill: Color, text: Color)? {
-        for entry in Self.measuredPills {
-            let d = abs(entry.base.red - color.red)
-                + abs(entry.base.green - color.green)
-                + abs(entry.base.blue - color.blue)
-            if d < 0.05 {
-                return colorScheme == .dark
-                    ? (entry.fillDark, entry.textDark)
-                    : (entry.fillLight, entry.textLight)
-            }
+    private func measuredEntry(for color: CalendarColor) -> MeasuredPill? {
+        Self.measuredPills.first {
+            abs($0.base.red - color.red) + abs($0.base.green - color.green)
+                + abs($0.base.blue - color.blue) < 0.05
         }
-        return nil
+    }
+
+    private static func p3(_ c: (Double, Double, Double)) -> Color {
+        Color(.displayP3, red: c.0 / 255, green: c.1 / 255, blue: c.2 / 255)
+    }
+
+    private static func color(_ c: (Double, Double, Double), p3: Bool) -> Color {
+        p3 ? Self.p3(c) : Color(red: c.0 / 255, green: c.1 / 255, blue: c.2 / 255)
+    }
+
+    private static func mix(
+        _ a: (Double, Double, Double), _ b: (Double, Double, Double), _ f: Double
+    ) -> (Double, Double, Double) {
+        (a.0 + (b.0 - a.0) * f, a.1 + (b.1 - a.1) * f, a.2 + (b.2 - a.2) * f)
+    }
+
+    /// HSB → RGB components on a 0–255 scale (for the fallback path,
+    /// so the tentative tints can be derived in component space).
+    private static func rgb(
+        hue: Double, saturation: Double, brightness: Double
+    ) -> (Double, Double, Double) {
+        let h = (hue - hue.rounded(.down)) * 6
+        let i = Int(h) % 6
+        let f = h - h.rounded(.down)
+        let p = brightness * (1 - saturation)
+        let q = brightness * (1 - saturation * f)
+        let t = brightness * (1 - saturation * (1 - f))
+        let rgb: (Double, Double, Double)
+        switch i {
+        case 0: rgb = (brightness, t, p)
+        case 1: rgb = (q, brightness, p)
+        case 2: rgb = (p, brightness, t)
+        case 3: rgb = (p, q, brightness)
+        case 4: rgb = (t, p, brightness)
+        default: rgb = (brightness, p, q)
+        }
+        return (rgb.0 * 255, rgb.1 * 255, rgb.2 * 255)
     }
 
     /// Fallback for calendars without a measured entry: keep the hue,
@@ -432,7 +467,9 @@ struct AgendaListView: View {
     /// grey vibrancy material and can never reach Apple's lightness.
     /// Dark mode values are untuned estimates (no reference measured).
     private func pillTextColor(_ color: CalendarColor) -> Color {
-        if let measured = measuredPill(for: color) { return measured.text }
+        if let m = measuredEntry(for: color) {
+            return Self.p3(colorScheme == .dark ? m.textDark : m.textLight)
+        }
         let (h, s, b) = color.hsb
         if colorScheme == .dark {
             return Color(hue: h, saturation: s * 0.85, brightness: min(1, b * 1.1))
@@ -440,13 +477,55 @@ struct AgendaListView: View {
         return Color(hue: h, saturation: min(1, s * 1.3), brightness: b * 0.5)
     }
 
-    private func pillFillColor(_ color: CalendarColor) -> Color {
-        if let measured = measuredPill(for: color) { return measured.fill }
-        let (h, s, b) = color.hsb
-        if colorScheme == .dark {
-            return Color(hue: h, saturation: s * 0.85, brightness: b * 0.33)
+    /// Pill fill as components plus whether they are Display P3
+    /// (measured) or sRGB (fallback); the tentative hatch derives its
+    /// tints from these in the same space.
+    private func pillFillComponents(_ color: CalendarColor) -> (c: (Double, Double, Double), p3: Bool) {
+        if let m = measuredEntry(for: color) {
+            return (colorScheme == .dark ? m.fillDark : m.fillLight, true)
         }
-        return Color(hue: h, saturation: s * 0.22, brightness: 1 - (1 - b) * 0.33)
+        let (h, s, b) = color.hsb
+        let c = colorScheme == .dark
+            ? Self.rgb(hue: h, saturation: s * 0.85, brightness: b * 0.33)
+            : Self.rgb(hue: h, saturation: s * 0.22, brightness: 1 - (1 - b) * 0.33)
+        return (c, false)
+    }
+
+    private func pillFillColor(_ color: CalendarColor) -> Color {
+        let (c, p3) = pillFillComponents(color)
+        return Self.color(c, p3: p3)
+    }
+
+    // MARK: Tentative (Maybe) hatch — measured from Calendar 2026-06-12:
+    // light: field = fill 33% toward white (exact for the pinned brown),
+    // stripe = fill 9% toward the base colour; dark: field/stripe = fill
+    // 13%/29% toward black; title keeps colour (light: pill text, dark:
+    // the plain calendar colour, as measured).
+
+    private func tentativeFieldColor(_ color: CalendarColor) -> Color {
+        let (c, p3) = pillFillComponents(color)
+        if colorScheme == .dark {
+            return Self.color(Self.mix(c, (0, 0, 0), 0.13), p3: p3)
+        }
+        return Self.color(Self.mix(c, (255, 255, 255), 0.33), p3: p3)
+    }
+
+    private func tentativeStripeColor(_ color: CalendarColor) -> Color {
+        let (c, p3) = pillFillComponents(color)
+        if colorScheme == .dark {
+            return Self.color(Self.mix(c, (0, 0, 0), 0.29), p3: p3)
+        }
+        let base = (color.red * 255, color.green * 255, color.blue * 255)
+        return Self.color(Self.mix(c, base, 0.09), p3: p3)
+    }
+
+    private func titleColor(for event: EventItem) -> Color {
+        if event.isPendingInvitation { return .secondary }
+        if event.isTentative {
+            return colorScheme == .dark
+                ? Color(calendarColor: event.color) : pillTextColor(event.color)
+        }
+        return .primary
     }
 
     private func timedRow(_ event: EventItem, day: Date) -> some View {
@@ -455,19 +534,23 @@ struct AgendaListView: View {
         let isPastToday = calendar.isDateInToday(day) && event.end < now
 
         return HStack(alignment: .top, spacing: 8) {
-            Circle()
+            // Calendar-style colour bar instead of a dot; the 8pt outer
+            // frame keeps titles aligned with the birthday rows' icon
+            // column.
+            RoundedRectangle(cornerRadius: 1.5)
                 .fill(Color(calendarColor: event.color))
-                .frame(width: 8, height: 8)
-                .padding(.top, 3)
+                .frame(width: 3)
+                .frame(width: 8, alignment: .leading)
+                .padding(.vertical, 1)
             VStack(alignment: .leading, spacing: 1) {
                 Text("\(timeString(event.start)) – \(timeString(event.end))")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                 Text(event.title)
                     .font(.system(size: 12, weight: .medium))
-                    // Pending invitations render their title grey, like
-                    // the text on Calendar's hatched blocks.
-                    .foregroundStyle(event.isPendingInvitation ? .secondary : .primary)
+                    // Pending → grey, tentative → calendar-coloured,
+                    // like the text on Calendar's hatched blocks.
+                    .foregroundStyle(titleColor(for: event))
                     .lineLimit(1)
                 if let location = event.location, !location.isEmpty {
                     Text(location)
@@ -495,11 +578,21 @@ struct AgendaListView: View {
             }
         }
         .background(
-            // Unanswered invitation: Apple Calendar's grey hatching across
-            // the whole row (neutral grey, not the calendar tint).
+            // Hatched rows like Apple Calendar: tentative (Maybe) in the
+            // calendar tint, unanswered invitations in neutral grey.
             // Negative padding mirrors RowHover so both fills align.
             Group {
-                if event.isPendingInvitation {
+                if event.isTentative {
+                    let shape = RoundedRectangle(cornerRadius: interactiveCornerRadius)
+                    ZStack {
+                        shape.fill(tentativeFieldColor(event.color))
+                        DiagonalStripes()
+                            .fill(tentativeStripeColor(event.color))
+                            .clipShape(shape)
+                    }
+                    .padding(.horizontal, -6)
+                    .padding(.vertical, -3)
+                } else if event.isPendingInvitation {
                     // Measured from Calendar: field ~4% grey, stripes
                     // another ~4% on top — low contrast, wide stripes.
                     let shape = RoundedRectangle(cornerRadius: interactiveCornerRadius)
