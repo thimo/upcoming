@@ -375,28 +375,53 @@ struct AgendaListView: View {
     /// so measured calendars get their exact captured values pinned
     /// here (light mode); everything else falls back to the fitted HSB
     /// transform below. Keyed by the calendar's EventKit sRGB colour.
-    private static let measuredPills: [(base: CalendarColor, fill: Color, text: Color)] = [
-        // Blue (Thimo Werk, 0 136 255)
-        (CalendarColor(red: 0, green: 136 / 255.0, blue: 1),
-         Color(.displayP3, red: 215 / 255.0, green: 238 / 255.0, blue: 1),
-         Color(.displayP3, red: 0, green: 68 / 255.0, blue: 127 / 255.0)),
-        // Brown (Digital Team / Calendar, 172 127 94)
-        (CalendarColor(red: 172 / 255.0, green: 127 / 255.0, blue: 94 / 255.0),
-         Color(.displayP3, red: 243 / 255.0, green: 237 / 255.0, blue: 232 / 255.0),
-         Color(.displayP3, red: 86 / 255.0, green: 63 / 255.0, blue: 47 / 255.0)),
-        // Yellow (Thimo Prive, 255 204 0)
-        (CalendarColor(red: 1, green: 204 / 255.0, blue: 0),
-         Color(.displayP3, red: 251 / 255.0, green: 244 / 255.0, blue: 209 / 255.0),
-         Color(.displayP3, red: 127 / 255.0, green: 102 / 255.0, blue: 0)),
+    private struct MeasuredPill {
+        let base: CalendarColor
+        let fillLight: Color
+        let textLight: Color
+        let fillDark: Color
+        let textDark: Color
+
+        init(base: (Double, Double, Double),
+             fillLight: (Double, Double, Double), textLight: (Double, Double, Double),
+             fillDark: (Double, Double, Double), textDark: (Double, Double, Double)) {
+            self.base = CalendarColor(
+                red: base.0 / 255, green: base.1 / 255, blue: base.2 / 255)
+            func p3(_ v: (Double, Double, Double)) -> Color {
+                Color(.displayP3, red: v.0 / 255, green: v.1 / 255, blue: v.2 / 255)
+            }
+            self.fillLight = p3(fillLight)
+            self.textLight = p3(textLight)
+            self.fillDark = p3(fillDark)
+            self.textDark = p3(textDark)
+        }
+    }
+
+    private static let measuredPills: [MeasuredPill] = [
+        // Blue (Thimo Werk)
+        MeasuredPill(base: (0, 136, 255),
+                     fillLight: (215, 238, 255), textLight: (0, 68, 127),
+                     fillDark: (13, 53, 83), textDark: (63, 170, 255)),
+        // Brown (Digital Team / Calendar)
+        MeasuredPill(base: (172, 127, 94),
+                     fillLight: (243, 237, 232), textLight: (86, 63, 47),
+                     fillDark: (56, 44, 33), textDark: (183, 138, 102)),
+        // Yellow (Thimo Prive)
+        MeasuredPill(base: (255, 204, 0),
+                     fillLight: (251, 244, 209), textLight: (127, 102, 0),
+                     fillDark: (77, 66, 6), textDark: (255, 214, 0)),
     ]
 
     private func measuredPill(for color: CalendarColor) -> (fill: Color, text: Color)? {
-        guard colorScheme == .light else { return nil }
         for entry in Self.measuredPills {
             let d = abs(entry.base.red - color.red)
                 + abs(entry.base.green - color.green)
                 + abs(entry.base.blue - color.blue)
-            if d < 0.05 { return (entry.fill, entry.text) }
+            if d < 0.05 {
+                return colorScheme == .dark
+                    ? (entry.fillDark, entry.textDark)
+                    : (entry.fillLight, entry.textLight)
+            }
         }
         return nil
     }
@@ -410,7 +435,7 @@ struct AgendaListView: View {
         if let measured = measuredPill(for: color) { return measured.text }
         let (h, s, b) = color.hsb
         if colorScheme == .dark {
-            return Color(hue: h, saturation: s * 0.65, brightness: min(1, b * 0.6 + 0.55))
+            return Color(hue: h, saturation: s * 0.85, brightness: min(1, b * 1.1))
         }
         return Color(hue: h, saturation: min(1, s * 1.3), brightness: b * 0.5)
     }
@@ -419,7 +444,7 @@ struct AgendaListView: View {
         if let measured = measuredPill(for: color) { return measured.fill }
         let (h, s, b) = color.hsb
         if colorScheme == .dark {
-            return Color(hue: h, saturation: s * 0.45, brightness: 0.18 + b * 0.16)
+            return Color(hue: h, saturation: s * 0.85, brightness: b * 0.33)
         }
         return Color(hue: h, saturation: s * 0.22, brightness: 1 - (1 - b) * 0.33)
     }
