@@ -369,14 +369,45 @@ struct AgendaListView: View {
                 .font(.system(size: 8, weight: .bold))
     }
 
-    /// Apple Calendar pill styling, fitted against native-resolution
-    /// screen captures of Calendar (2026-06-12; brown matches per-pixel,
-    /// blue/yellow within a few values): both fill and text keep the
-    /// calendar colour's hue and transform saturation/brightness in HSB.
+    /// Apple Calendar pill colours, measured per-pixel from native
+    /// screen captures (2026-06-12). The display renders in Display P3
+    /// and Calendar's values only behave consistently as P3 components,
+    /// so measured calendars get their exact captured values pinned
+    /// here (light mode); everything else falls back to the fitted HSB
+    /// transform below. Keyed by the calendar's EventKit sRGB colour.
+    private static let measuredPills: [(base: CalendarColor, fill: Color, text: Color)] = [
+        // Blue (Thimo Werk, 0 136 255)
+        (CalendarColor(red: 0, green: 136 / 255.0, blue: 1),
+         Color(.displayP3, red: 215 / 255.0, green: 238 / 255.0, blue: 1),
+         Color(.displayP3, red: 0, green: 68 / 255.0, blue: 127 / 255.0)),
+        // Brown (Digital Team / Calendar, 172 127 94)
+        (CalendarColor(red: 172 / 255.0, green: 127 / 255.0, blue: 94 / 255.0),
+         Color(.displayP3, red: 243 / 255.0, green: 237 / 255.0, blue: 232 / 255.0),
+         Color(.displayP3, red: 86 / 255.0, green: 63 / 255.0, blue: 47 / 255.0)),
+        // Yellow (Thimo Prive, 255 204 0)
+        (CalendarColor(red: 1, green: 204 / 255.0, blue: 0),
+         Color(.displayP3, red: 251 / 255.0, green: 244 / 255.0, blue: 209 / 255.0),
+         Color(.displayP3, red: 127 / 255.0, green: 102 / 255.0, blue: 0)),
+    ]
+
+    private func measuredPill(for color: CalendarColor) -> (fill: Color, text: Color)? {
+        guard colorScheme == .light else { return nil }
+        for entry in Self.measuredPills {
+            let d = abs(entry.base.red - color.red)
+                + abs(entry.base.green - color.green)
+                + abs(entry.base.blue - color.blue)
+            if d < 0.05 { return (entry.fill, entry.text) }
+        }
+        return nil
+    }
+
+    /// Fallback for calendars without a measured entry: keep the hue,
+    /// transform saturation/brightness in HSB (fitted to the captures).
     /// Colours are OPAQUE on purpose — alpha tints sink into the panel's
     /// grey vibrancy material and can never reach Apple's lightness.
     /// Dark mode values are untuned estimates (no reference measured).
     private func pillTextColor(_ color: CalendarColor) -> Color {
+        if let measured = measuredPill(for: color) { return measured.text }
         let (h, s, b) = color.hsb
         if colorScheme == .dark {
             return Color(hue: h, saturation: s * 0.65, brightness: min(1, b * 0.6 + 0.55))
@@ -385,6 +416,7 @@ struct AgendaListView: View {
     }
 
     private func pillFillColor(_ color: CalendarColor) -> Color {
+        if let measured = measuredPill(for: color) { return measured.fill }
         let (h, s, b) = color.hsb
         if colorScheme == .dark {
             return Color(hue: h, saturation: s * 0.45, brightness: 0.18 + b * 0.16)
