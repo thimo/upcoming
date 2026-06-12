@@ -274,13 +274,15 @@ struct AgendaListView: View {
     }
 
     private func birthdayRow(_ event: EventItem) -> some View {
-        // Mirrors timedRow's leading column (8pt dot + 8pt gap) so the
-        // title lines up with the timed titles below it.
-        HStack(spacing: 8) {
+        // Mirrors timedRow's leading column (3pt bar + 5pt gap) so the
+        // title lines up with the timed titles below it; the gift glyph
+        // overhangs its narrow frame a touch, which the hover fill
+        // (negative padding) comfortably covers.
+        HStack(spacing: 5) {
             Image(systemName: "gift.fill")
                 .font(.system(size: 10))
                 .foregroundStyle(.red)
-                .frame(width: 8)
+                .frame(width: 3)
             Text(event.title)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(1)
@@ -533,14 +535,12 @@ struct AgendaListView: View {
         // cue within today) — not events on past days.
         let isPastToday = calendar.isDateInToday(day) && event.end < now
 
-        return HStack(alignment: .top, spacing: 8) {
-            // Calendar-style colour bar instead of a dot; the 8pt outer
-            // frame keeps titles aligned with the birthday rows' icon
-            // column.
+        return HStack(alignment: .top, spacing: 5) {
+            // Calendar-style colour bar instead of a dot, with Calendar's
+            // tight bar-to-text gap.
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(Color(calendarColor: event.color))
                 .frame(width: 3)
-                .frame(width: 8, alignment: .leading)
                 .padding(.vertical, 1)
             VStack(alignment: .leading, spacing: 1) {
                 Text("\(timeString(event.start)) – \(timeString(event.end))")
