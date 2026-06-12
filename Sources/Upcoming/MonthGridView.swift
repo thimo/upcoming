@@ -184,9 +184,9 @@ struct MonthGridView: View {
         } == true
 
         // Both markers are rounded squares (one shape family; circles'
-        // bottoms land on the dot row): filled = today, ring = where the
-        // list is. They coincide when the list sits on today. 2pt air
-        // between cell and dots.
+        // bottoms land on the dot row): filled red = today (Apple
+        // Calendar), blue ring = where the list is. They coincide when
+        // the list sits on today. 2pt air between cell and dots.
         return VStack(spacing: 2) {
             Text("\(calendar.component(.day, from: day))")
                 .font(.system(size: 12, weight: isToday ? .bold : .regular))
@@ -196,7 +196,7 @@ struct MonthGridView: View {
                 .frame(width: 24, height: 21)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(isToday ? Color.accentColor : Color.clear)
+                        .fill(isToday ? Color.todayRed : Color.clear)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)

@@ -5,6 +5,12 @@ import SwiftUI
 /// controls. (Uncommitted convention.)
 let interactiveCornerRadius: CGFloat = 6
 
+extension Color {
+    /// Apple Calendar's today-red (systemRed), shared by the grid's
+    /// today badge and the agenda's TODAY header.
+    static let todayRed = Color(red: 1.0, green: 0.23, blue: 0.19)
+}
+
 /// Borderless button that shows a subtle background on hover and a
 /// slightly stronger one while pressed. Copied from Uncommitted.
 struct GhostButtonStyle: ButtonStyle {

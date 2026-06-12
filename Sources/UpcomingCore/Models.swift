@@ -44,6 +44,9 @@ public struct EventItem: Identifiable, Equatable {
     public let isBirthday: Bool
     /// Has a recurrence rule; rendered with Apple Calendar's ⟳ marker.
     public let isRecurring: Bool
+    /// Invitation the user hasn't responded to yet; rendered like Apple
+    /// Calendar's pending style (striped pill / hollow dot).
+    public let isPendingInvitation: Bool
     /// Raw EKEvent identifier (shared across occurrences of a recurring
     /// event, unlike `id`); needed for the ical://ekevent/ deep link
     /// that opens the event in Calendar.app.
@@ -61,6 +64,7 @@ public struct EventItem: Identifiable, Equatable {
         isAllDay: Bool,
         isBirthday: Bool = false,
         isRecurring: Bool = false,
+        isPendingInvitation: Bool = false,
         eventIdentifier: String = "",
         location: String? = nil,
         videoCallURL: URL? = nil
@@ -74,6 +78,7 @@ public struct EventItem: Identifiable, Equatable {
         self.isAllDay = isAllDay
         self.isBirthday = isBirthday
         self.isRecurring = isRecurring
+        self.isPendingInvitation = isPendingInvitation
         self.eventIdentifier = eventIdentifier
         self.location = location
         self.videoCallURL = videoCallURL

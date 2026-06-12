@@ -134,11 +134,26 @@ public final class CalendarService: ObservableObject {
     }
 
     private nonisolated static func isDeclinedByMe(_ event: EKEvent) -> Bool {
+        myParticipantStatus(event) == .declined
+    }
+
+    private nonisolated static func myParticipantStatus(_ event: EKEvent) -> EKParticipantStatus? {
         guard let attendees = event.attendees,
               let me = attendees.first(where: { $0.isCurrentUser }) else {
-            return false
+            return nil
         }
-        return me.participantStatus == .declined
+        return me.participantStatus
+    }
+
+    /// Unanswered invitation. Exchange/Google deliver "needs action" as
+    /// `.unknown` rather than `.pending` (verified empirically 2026-06-12),
+    /// so both count — but only when the user actually appears in the
+    /// attendee list (own attendee-less events report no status at all).
+    private nonisolated static func isPendingInvitation(_ event: EKEvent) -> Bool {
+        switch myParticipantStatus(event) {
+        case .pending, .unknown: return true
+        default: return false
+        }
     }
 
     private nonisolated static func eventItem(from event: EKEvent) -> EventItem {
@@ -156,6 +171,7 @@ public final class CalendarService: ObservableObject {
             isAllDay: event.isAllDay,
             isBirthday: event.calendar?.type == .birthday,
             isRecurring: event.hasRecurrenceRules,
+            isPendingInvitation: isPendingInvitation(event),
             eventIdentifier: baseID,
             location: event.location?.trimmingCharacters(in: .whitespacesAndNewlines),
             videoCallURL: VideoCallDetector.detect(

@@ -321,9 +321,7 @@ struct AgendaListView: View {
         return HStack(spacing: 5) {
             Text(name)
                 .font(.system(size: 12, weight: .bold))
-                // Deeper than systemRed: vibrancy washes that to salmon.
-                .foregroundStyle(isToday
-                    ? Color(red: 0.85, green: 0.12, blue: 0.10) : .secondary)
+                .foregroundStyle(isToday ? Color.todayRed : .secondary)
             Text(formatter.string(from: day))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -339,21 +337,27 @@ struct AgendaListView: View {
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
             .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(pillFillColor(event.color))
+                ZStack {
+                    let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    if event.isPendingInvitation {
+                        // Unanswered invitation: grey hatch instead of the
+                        // tint (Calendar's treatment); text keeps colour.
+                        shape.fill(Color.primary.opacity(0.04))
+                        DiagonalStripes()
+                            .fill(Color.primary.opacity(0.045))
+                            .clipShape(shape)
+                    } else {
+                        shape.fill(pillFillColor(event.color))
+                    }
+                }
             )
             .onTapGesture { open(event) }
             .pointingHandCursor()
     }
 
-    /// Apple Calendar's recurrence glyph: the thin two-arrow circle.
-    /// SF Symbols 6 (macOS 15) name, with the closest older glyph as
-    /// fallback for the macOS 14 deployment target.
-    static let recurrenceSymbol: String =
-        NSImage(systemSymbolName: "arrow.trianglehead.2.clockwise",
-                accessibilityDescription: nil) != nil
-            ? "arrow.trianglehead.2.clockwise"
-            : "arrow.triangle.2.circlepath"
+    /// Apple Calendar's recurrence glyph: two stacked horizontal arrows
+    /// (verified against a zoomed Calendar screenshot 2026-06-12).
+    static let recurrenceSymbol = "repeat"
 
     /// Pill title with Apple Calendar's inline ⟳ for recurring events;
     /// concatenated Text so the marker flows with the (wrappable) title.
@@ -403,6 +407,9 @@ struct AgendaListView: View {
                     .foregroundStyle(.secondary)
                 Text(event.title)
                     .font(.system(size: 12))
+                    // Pending invitations render their title grey, like
+                    // the text on Calendar's hatched blocks.
+                    .foregroundStyle(event.isPendingInvitation ? .secondary : .primary)
                     .lineLimit(1)
                 if let location = event.location, !location.isEmpty {
                     Text(location)
@@ -429,6 +436,26 @@ struct AgendaListView: View {
                 .help("Join video call")
             }
         }
+        .background(
+            // Unanswered invitation: Apple Calendar's grey hatching across
+            // the whole row (neutral grey, not the calendar tint).
+            // Negative padding mirrors RowHover so both fills align.
+            Group {
+                if event.isPendingInvitation {
+                    // Measured from Calendar: field ~4% grey, stripes
+                    // another ~4% on top — low contrast, wide stripes.
+                    let shape = RoundedRectangle(cornerRadius: interactiveCornerRadius)
+                    ZStack {
+                        shape.fill(Color.primary.opacity(0.04))
+                        DiagonalStripes()
+                            .fill(Color.primary.opacity(0.045))
+                            .clipShape(shape)
+                    }
+                    .padding(.horizontal, -6)
+                    .padding(.vertical, -3)
+                }
+            }
+        )
         .opacity(isPastToday ? 0.45 : 1.0)
         .contentShape(Rectangle())
         .onTapGesture { open(event) }
@@ -441,6 +468,27 @@ struct AgendaListView: View {
         formatter.timeStyle = .short
         formatter.dateStyle = .none
         return formatter.string(from: date)
+    }
+}
+
+/// 45° hatching for unanswered invitations (Apple Calendar's pending
+/// treatment). Geometry measured from a Calendar screenshot @2x:
+/// stripe and gap each ~4.5pt.
+private struct DiagonalStripes: Shape {
+    var lineWidth: CGFloat = 4.5
+    var spacing: CGFloat = 4.5
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let step = lineWidth + spacing
+        // Start one height early so the slanted lines cover the left edge.
+        var x = rect.minX - rect.height
+        while x < rect.maxX {
+            path.move(to: CGPoint(x: x, y: rect.maxY))
+            path.addLine(to: CGPoint(x: x + rect.height, y: rect.minY))
+            x += step
+        }
+        return path.strokedPath(StrokeStyle(lineWidth: lineWidth))
     }
 }
 
