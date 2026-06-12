@@ -157,7 +157,7 @@ struct MonthGridView: View {
         return HStack(spacing: 0) {
             Text("\(calendar.component(.weekOfYear, from: week.first ?? Date()))")
                 .font(.system(size: 9))
-                .foregroundStyle(containsAnchor ? Color.accentColor : Color.secondary)
+                .foregroundStyle(containsAnchor ? Color.todayRed : Color.secondary)
                 .frame(width: 24)
             ForEach(week, id: \.self) { day in
                 dayCell(day)
@@ -200,7 +200,7 @@ struct MonthGridView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(Color.accentColor, lineWidth: 1.5)
+                        .strokeBorder(Color.todayRed, lineWidth: 1.5)
                         .opacity(isHighlighted ? 1 : 0)
                 )
             HStack(spacing: 2) {
