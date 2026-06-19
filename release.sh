@@ -1,7 +1,7 @@
 #!/bin/bash
 # Full release pipeline for Upcoming. Mirrors Uncommitted's release.sh
-# (the donor pipeline); the Sparkle appcast section is in place but
-# skips itself until the Sparkle dependency lands (auto-update work).
+# (the donor pipeline): universal build, Developer ID sign + notarize +
+# staple, Sparkle framework embed, EdDSA-signed appcast, GitHub release.
 #
 # Usage:
 #   ./release.sh 0.2.0            # build, sign, notarize, GitHub release
@@ -95,6 +95,9 @@ echo "==> Assembling $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp build/upcoming-universal "$APP/Contents/MacOS/upcoming"
+# Sparkle.framework is found via this rpath at runtime (SPM doesn't add it).
+install_name_tool -add_rpath @executable_path/../Frameworks \
+  "$APP/Contents/MacOS/upcoming" 2>/dev/null || true
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp build/Upcoming.icns "$APP/Contents/Resources/Upcoming.icns"
 printf "APPL????" > "$APP/Contents/PkgInfo"
@@ -105,11 +108,38 @@ if [ -d "$SPM_BUNDLE" ]; then
   cp -R "$SPM_BUNDLE" "$APP/Contents/Resources/"
 fi
 
+# Sparkle framework (SPM binary artifact) for auto-updates.
+SPARKLE_FW=".build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+if [ -d "$SPARKLE_FW" ]; then
+  echo "==> Embedding Sparkle framework"
+  mkdir -p "$APP/Contents/Frameworks"
+  cp -R "$SPARKLE_FW" "$APP/Contents/Frameworks/"
+fi
+
+# WeatherKit (managed entitlement) needs the embedded provisioning profile
+# for Developer ID distribution, or the app won't launch.
+if [ -f Resources/embedded.provisionprofile ]; then
+  echo "==> Embedding provisioning profile"
+  cp Resources/embedded.provisionprofile "$APP/Contents/embedded.provisionprofile"
+fi
+
 # ---------------------------------------------------------------------------
 # Code signing
 # ---------------------------------------------------------------------------
 if [ -n "$SIGN_IDENTITY" ]; then
   echo "==> Signing with Developer ID (hardened runtime + timestamp)"
+  # Sparkle's nested code first, WITHOUT the app's entitlements — the
+  # managed WeatherKit/calendars entitlements must not land on Sparkle's
+  # helper bundles (their IDs aren't in the profile) or they fail to launch.
+  # The app is signed below without --deep, so these signatures survive.
+  if [ -d "$APP/Contents/Frameworks/Sparkle.framework" ]; then
+    echo "==> Signing Sparkle framework"
+    codesign --force --deep \
+      --sign "$SIGN_IDENTITY" \
+      --options runtime \
+      --timestamp \
+      "$APP/Contents/Frameworks/Sparkle.framework"
+  fi
   codesign --force \
     --sign "$SIGN_IDENTITY" \
     --entitlements Resources/Upcoming.entitlements \
@@ -118,9 +148,11 @@ if [ -n "$SIGN_IDENTITY" ]; then
     "$APP"
 else
   echo "==> Ad-hoc signing"
+  [ -d "$APP/Contents/Frameworks/Sparkle.framework" ] && \
+    codesign --force --deep --sign - "$APP/Contents/Frameworks/Sparkle.framework"
   codesign --force --sign - "$APP"
 fi
-codesign --verify --verbose "$APP" 2>&1 | head -5
+codesign --verify --verbose --deep "$APP" 2>&1 | head -5
 
 # ---------------------------------------------------------------------------
 # Zip for distribution (ditto preserves code sig + extended attrs)
@@ -155,7 +187,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Sparkle appcast (no-op until the Sparkle dependency lands)
+# Sparkle appcast (EdDSA-signed from the key in the keychain)
 # ---------------------------------------------------------------------------
 SPARKLE_BIN=".build/artifacts/sparkle/Sparkle/bin"
 if [ -x "$SPARKLE_BIN/generate_appcast" ] && [ "$DRY_RUN" = false ]; then

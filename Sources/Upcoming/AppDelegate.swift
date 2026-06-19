@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Sparkle
 import SwiftUI
 import UpcomingCore
 
@@ -16,6 +17,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let config = AppConfig()
     /// Drives the display-only hover preview panel (event / day cards).
     let previewModel = PreviewModel()
+    /// Sparkle auto-updater. Created at launch (starts background checks);
+    /// the Settings "Check for Updates" action calls through to it.
+    private(set) lazy var updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     private var statusItem: NSStatusItem?
     private var panel: NSPanel?
@@ -66,6 +74,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         setupPanel()
         calendarService.requestAccess()
+        // Touch the lazy updater so Sparkle starts its background checks at
+        // launch, not only when Settings is first opened.
+        _ = updaterController
 
         // Global hotkey (default ⌘⇧C). The published-property sink also
         // fires once on subscription, registering the initial shortcut.

@@ -28,5 +28,9 @@
 	<string>Upcoming shows the calendars you already sync in Calendar.app from your menu bar.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/thimo/upcoming/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>NlywPcap2FbeNZLKoe8aPtZrE7KiDZikSarj6ORR12M=</string>
 </dict>
 </plist>

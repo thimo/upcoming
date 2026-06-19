@@ -31,6 +31,10 @@ echo "==> Assembling $APP_STAGING"
 rm -rf "$APP_STAGING"
 mkdir -p "$APP_STAGING/Contents/MacOS" "$APP_STAGING/Contents/Resources"
 cp "$BIN_SRC" "$APP_STAGING/Contents/MacOS/upcoming"
+# SPM doesn't add @executable_path/../Frameworks to the rpath, which
+# Sparkle.framework needs to be found at runtime.
+install_name_tool -add_rpath @executable_path/../Frameworks \
+  "$APP_STAGING/Contents/MacOS/upcoming" 2>/dev/null || true
 cp Resources/Info.plist "$APP_STAGING/Contents/Info.plist"
 printf "APPL????" > "$APP_STAGING/Contents/PkgInfo"
 echo "==> Generating app icon"
@@ -50,6 +54,15 @@ if [ -d "$SPM_BUNDLE" ]; then
   cp -R "$SPM_BUNDLE" "$APP_STAGING/Contents/Resources/"
 fi
 
+# Sparkle framework (SPM binary artifact, inside an xcframework) for
+# auto-updates.
+SPARKLE_FW=".build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+if [ -d "$SPARKLE_FW" ]; then
+  echo "==> Embedding Sparkle framework"
+  mkdir -p "$APP_STAGING/Contents/Frameworks"
+  cp -R "$SPARKLE_FW" "$APP_STAGING/Contents/Frameworks/"
+fi
+
 # WeatherKit (and any other managed entitlement) needs an embedded
 # provisioning profile for Developer ID distribution. Drop the downloaded
 # profile at Resources/embedded.provisionprofile and it gets bundled; the
@@ -66,10 +79,22 @@ if ! security find-identity -p codesigning -v | grep -qF "$SIGN_ID"; then
   security find-identity -p codesigning -v >&2
   exit 1
 fi
+# Sign Sparkle's nested code first, with the Developer ID but WITHOUT the
+# app's entitlements: propagating the managed WeatherKit/calendars
+# entitlements onto Sparkle's helper bundles (their own bundle IDs aren't
+# in the provisioning profile) makes them fail to launch. The app is signed
+# separately below, without --deep, so it keeps these signatures intact.
+if [ -d "$APP_STAGING/Contents/Frameworks/Sparkle.framework" ]; then
+  echo "==> Signing Sparkle framework"
+  codesign --force --deep --options runtime \
+    --sign "$SIGN_ID" \
+    "$APP_STAGING/Contents/Frameworks/Sparkle.framework"
+fi
+
 codesign --force --options runtime \
   --entitlements Resources/Upcoming.entitlements \
   --sign "$SIGN_ID" "$APP_STAGING"
-codesign --verify --verbose "$APP_STAGING" 2>&1 | head -5
+codesign --verify --verbose --deep "$APP_STAGING" 2>&1 | head -5
 
 APP_INSTALL="$HOME/Applications/Upcoming.app"
 echo "==> Installing to $APP_INSTALL"

@@ -10,6 +10,9 @@ let package = Package(
         .executable(name: "upcoming", targets: ["Upcoming"]),
         .executable(name: "UpcomingTests", targets: ["UpcomingTests"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
+    ],
     targets: [
         // Models, grouping logic, video-call detection, EventKit service.
         // Everything testable lives here.
@@ -19,10 +22,13 @@ let package = Package(
                 .swiftLanguageMode(.v5),
             ]
         ),
-        // Thin AppKit + SwiftUI shell.
+        // Thin AppKit + SwiftUI shell. Depends on Sparkle for auto-updates.
         .executableTarget(
             name: "Upcoming",
-            dependencies: ["UpcomingCore"],
+            dependencies: [
+                "UpcomingCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             resources: [
                 .process("Resources"),
             ],

@@ -28,6 +28,8 @@ private let tabWidth: CGFloat = 480
 struct GeneralSettingsView: View {
     @EnvironmentObject private var config: AppConfig
     @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
+    @State private var autoCheckForUpdates = true
+    @State private var autoDownloadUpdates = false
 
     var body: some View {
         Form {
@@ -80,11 +82,30 @@ struct GeneralSettingsView: View {
                         }
                     }
             }
+
+            Section("Updates") {
+                Toggle("Check for updates automatically", isOn: $autoCheckForUpdates)
+                    .onChange(of: autoCheckForUpdates) { _, newValue in
+                        AppDelegate.shared?.updaterController.updater
+                            .automaticallyChecksForUpdates = newValue
+                    }
+                Toggle("Download and install automatically", isOn: $autoDownloadUpdates)
+                    .onChange(of: autoDownloadUpdates) { _, newValue in
+                        AppDelegate.shared?.updaterController.updater
+                            .automaticallyDownloadsUpdates = newValue
+                    }
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .frame(width: tabWidth)
         .fixedSize(horizontal: false, vertical: true)
+        .onAppear {
+            if let updater = AppDelegate.shared?.updaterController.updater {
+                autoCheckForUpdates = updater.automaticallyChecksForUpdates
+                autoDownloadUpdates = updater.automaticallyDownloadsUpdates
+            }
+        }
     }
 }
 
@@ -364,12 +385,8 @@ struct AboutSettingsView: View {
             .pointingHandCursor()
             .padding(.top, 6)
 
-            // Manual check until the Sparkle pipeline lands (roadmap);
-            // Sparkle's updater takes over this button then.
             Button("Check for Updates…") {
-                NSWorkspace.shared.open(
-                    URL(string: "https://github.com/thimo/upcoming/releases")!
-                )
+                AppDelegate.shared?.updaterController.updater.checkForUpdates()
             }
             .padding(.top, 2)
 
