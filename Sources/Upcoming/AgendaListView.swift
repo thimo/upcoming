@@ -62,6 +62,12 @@ struct AgendaListView: View {
     let calendarNames: [String: String]
     /// Shown when there are no sections (varies for search vs. normal).
     var emptyMessage: String = "No upcoming events"
+    /// Lazy for the infinite agenda; non-lazy for the bounded search result
+    /// set, so scrollTo lands on any row reliably (all rows are laid out).
+    var useLazyRows: Bool = true
+    /// When set (search), a "TODAY" divider is drawn above the section with
+    /// this day — the first future match, marking the past/future boundary.
+    var todayMarkerDay: Date? = nil
     /// Pending scroll command; cleared after scrolling. The parent arms
     /// its window-edge triggers on that clear.
     @Binding var scrollRequest: ScrollRequest?
@@ -79,29 +85,54 @@ struct AgendaListView: View {
 
     private var palette: PillPalette { PillPalette(colorScheme: colorScheme) }
 
+    @ViewBuilder private var sectionRows: some View {
+        if sections.isEmpty {
+            Text(emptyMessage)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 24)
+        }
+        ForEach(sections) { section in
+            VStack(alignment: .leading, spacing: 8) {
+                if section.day == todayMarkerDay {
+                    todayDivider
+                }
+                daySection(section)
+            }
+            .id(section.day)
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: DayFramePreference.self,
+                        value: [section.day: geo.frame(in: .named("agenda"))]
+                    )
+                }
+            )
+            .onAppear { onSectionAppear(section.day) }
+        }
+    }
+
+    /// "TODAY" marker drawn at the past/future boundary in search results.
+    private var todayDivider: some View {
+        HStack(spacing: 8) {
+            Text("TODAY")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Color.todayRed)
+            Rectangle()
+                .fill(Color.todayRed.opacity(0.30))
+                .frame(height: 1)
+        }
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    if sections.isEmpty {
-                        Text(emptyMessage)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 24)
-                    }
-                    ForEach(sections) { section in
-                        daySection(section)
-                            .id(section.day)
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear.preference(
-                                        key: DayFramePreference.self,
-                                        value: [section.day: geo.frame(in: .named("agenda"))]
-                                    )
-                                }
-                            )
-                            .onAppear { onSectionAppear(section.day) }
+                Group {
+                    if useLazyRows {
+                        LazyVStack(alignment: .leading, spacing: 14) { sectionRows }
+                    } else {
+                        VStack(alignment: .leading, spacing: 14) { sectionRows }
                     }
                 }
                 .padding(.horizontal, 12)

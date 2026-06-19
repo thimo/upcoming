@@ -60,7 +60,7 @@ struct ContentView: View {
     /// and held in state — set together with the scroll request so the list
     /// lands on the next match reliably (mirrors the agenda's own reload).
     @State private var searchSections: [DaySection] = []
-    /// A wide event corpus (±2y) fetched once per search session, so search
+    /// A wide event corpus (±5y) fetched once per search session, so search
     /// reaches well beyond the loaded agenda window. Until it loads, search
     /// falls back to the in-memory window for instant (partial) results.
     @State private var searchEvents: [EventItem] = []
@@ -89,10 +89,9 @@ struct ContentView: View {
     private var isSearching: Bool { !trimmedQuery.isEmpty }
 
     /// Events in the loaded window whose title or location matches the query,
-    /// ordered upcoming-first but each block chronological: today-onward
-    /// ascending, then the past (also ascending) below. The list opens on the
-    /// next match (row 0 — reliable, unlike scrolling to a mid-list day);
-    /// scroll down for past matches.
+    /// in plain chronological order (past above, future below), capped near
+    /// today so the non-lazy search render stays snappy. The list is parked
+    /// on the next match, so scroll up = past, scroll down = future.
     private func computeSearchSections() -> [DaySection] {
         let query = trimmedQuery
         guard !query.isEmpty else { return [] }
@@ -102,22 +101,24 @@ struct ContentView: View {
             event.title.localizedCaseInsensitiveContains(query)
                 || (event.location?.localizedCaseInsensitiveContains(query) ?? false)
         }
-        // Group over the span the matches actually cover (not the agenda
-        // window, which the corpus can exceed).
         let cal = calendar
         guard let start = matches.map(\.start).min().map({ cal.startOfDay(for: $0) }),
               let end = matches.map(\.end).max().map({ cal.startOfDay(for: $0) }) else { return [] }
         let all = EventGrouping.sections(events: matches, from: start, to: end, calendar: cal)
+        // Chronological, capped to the ~200 most-recent past + ~200 soonest
+        // future day-sections so the non-lazy render can't blow up.
         let today = cal.startOfDay(for: Date())
-        return all.filter { $0.day >= today } + all.filter { $0.day < today }
+        let past = all.filter { $0.day < today }.suffix(200)
+        let future = all.filter { $0.day >= today }.prefix(200)
+        return Array(past) + Array(future)
     }
 
-    /// Fetches a wide ±2-year event corpus for search, once per session.
+    /// Fetches a wide ±5-year event corpus for search, once per session.
     private func loadSearchCorpus() {
         let cal = calendar
         let today = cal.startOfDay(for: Date())
-        guard let from = cal.date(byAdding: .year, value: -2, to: today),
-              let to = cal.date(byAdding: .year, value: 2, to: today) else { return }
+        guard let from = cal.date(byAdding: .year, value: -5, to: today),
+              let to = cal.date(byAdding: .year, value: 5, to: today) else { return }
         let hidden = config.hiddenCalendarIDs
         Task {
             let events = await calendarService.events(
@@ -128,12 +129,17 @@ struct ContentView: View {
         }
     }
 
-    /// Recompute results + park on the next match (row 0). Called when the
+    /// Recompute results + park on the next upcoming match (the today
+    /// boundary), so past sits above (scroll up) and future below (scroll
+    /// down). Reliable because search renders non-lazily. Called when the
     /// query changes and when the corpus finishes loading.
     private func refreshSearch() {
         searchSections = computeSearchSections()
-        if let first = searchSections.first?.day {
-            scrollRequest = ScrollRequest(day: first, animated: false)
+        let today = calendar.startOfDay(for: Date())
+        let target = searchSections.first(where: { $0.day >= today })?.day
+            ?? searchSections.last?.day
+        if let target {
+            scrollRequest = ScrollRequest(day: target, animated: false)
         }
     }
 
@@ -195,6 +201,14 @@ struct ContentView: View {
                 accessDeniedView
             } else {
                 let searching = isSearching
+                // The TODAY divider sits before the first future match, but
+                // only when there are past matches above it to separate from.
+                let todayMarker: Date? = {
+                    guard searching else { return nil }
+                    let today = calendar.startOfDay(for: Date())
+                    guard searchSections.contains(where: { $0.day < today }) else { return nil }
+                    return searchSections.first(where: { $0.day >= today })?.day
+                }()
                 AgendaListView(
                     sections: searching ? searchSections : sections,
                     calendar: calendar,
@@ -204,6 +218,8 @@ struct ContentView: View {
                     combinePills: searching ? false : config.combineAllDayPills,
                     calendarNames: calendarNames,
                     emptyMessage: searching ? "No matching events" : "No upcoming events",
+                    useLazyRows: !searching,
+                    todayMarkerDay: todayMarker,
                     scrollRequest: $scrollRequest,
                     // While searching, freeze the infinite-scroll edge
                     // triggers and grid-follow (the result set is a flat
