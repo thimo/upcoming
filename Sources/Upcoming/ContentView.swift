@@ -53,6 +53,15 @@ struct ContentView: View {
     @State private var topVisibleDay: Date?
     /// calendarID → title, for the combined all-day count pills.
     @State private var calendarNames: [String: String] = [:]
+    /// Agenda search query; when non-empty the list shows matching events
+    /// from the loaded window instead of the live day-by-day agenda.
+    @State private var searchQuery = ""
+    /// Matching day-sections (chronological), computed on each query change
+    /// and held in state — set together with the scroll request so the list
+    /// lands on the next match reliably (mirrors the agenda's own reload).
+    @State private var searchSections: [DaySection] = []
+    /// Focus for the search field — taken on open so you can type straight away.
+    @FocusState private var searchFocused: Bool
 
     static let panelWidth: CGFloat = 320
     /// Initial window around today, and how it grows at the edges. A year
@@ -68,8 +77,64 @@ struct ContentView: View {
         return cal
     }
 
+    private var trimmedQuery: String {
+        searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isSearching: Bool { !trimmedQuery.isEmpty }
+
+    /// Events in the loaded window whose title or location matches the query,
+    /// ordered upcoming-first: today-onward ascending, then past matches
+    /// most-recent-first below. The list opens on the next match (row 0 —
+    /// reliable, unlike scrolling to a mid-list day); scroll down for past.
+    private func computeSearchSections() -> [DaySection] {
+        let query = trimmedQuery
+        guard !query.isEmpty, let start = agendaStart, let end = agendaEnd else { return [] }
+        let matches = windowEvents.filter { event in
+            event.title.localizedCaseInsensitiveContains(query)
+                || (event.location?.localizedCaseInsensitiveContains(query) ?? false)
+        }
+        let all = EventGrouping.sections(events: matches, from: start, to: end, calendar: calendar)
+        let today = calendar.startOfDay(for: Date())
+        return all.filter { $0.day >= today } + all.filter { $0.day < today }.reversed()
+    }
+
+    /// Search box above the agenda; filters within the loaded window.
+    /// Styled after Apple Calendar's search field — a capsule with a soft
+    /// fill and a hairline border.
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+            TextField("Search", text: $searchQuery)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($searchFocused)
+            if !searchQuery.isEmpty {
+                Button { searchQuery = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .pointingHandCursor()
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color.primary.opacity(0.05), in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.5))
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
+            // Search at the very top (Fantastical-style), above the grid.
+            searchField
+
             MonthGridView(
                 displayedMonth: $displayedMonth,
                 dotColors: dotColors,
@@ -84,7 +149,6 @@ struct ContentView: View {
                 }
             )
             .padding(.horizontal, 12)
-            .padding(.top, 12)
             .padding(.bottom, 8)
 
             Divider()
@@ -92,15 +156,22 @@ struct ContentView: View {
             if calendarService.authState == .denied {
                 accessDeniedView
             } else {
+                let searching = isSearching
                 AgendaListView(
-                    sections: sections,
+                    sections: searching ? searchSections : sections,
                     calendar: calendar,
                     now: now,
-                    combinePills: config.combineAllDayPills,
+                    // Never collapse into "<calendar> · N" count pills while
+                    // searching — the matching titles must stay visible.
+                    combinePills: searching ? false : config.combineAllDayPills,
                     calendarNames: calendarNames,
+                    emptyMessage: searching ? "No matching events" : "No upcoming events",
                     scrollRequest: $scrollRequest,
-                    onSectionAppear: sectionAppeared,
-                    onTopDayChange: topDayChanged
+                    // While searching, freeze the infinite-scroll edge
+                    // triggers and grid-follow (the result set is a flat
+                    // filter of the loaded window, not the live agenda).
+                    onSectionAppear: searching ? { _ in } : sectionAppeared,
+                    onTopDayChange: searching ? { _ in } : topDayChanged
                 )
             }
 
@@ -122,14 +193,36 @@ struct ContentView: View {
                 extendingWindow = false
             }
         }
+        .onChange(of: searchQuery) {
+            if isSearching {
+                searchSections = computeSearchSections()
+                // Results are upcoming-first, so row 0 is the next match;
+                // scroll there (row 0 is reliable, mid-list is not).
+                if let first = searchSections.first?.day {
+                    scrollRequest = ScrollRequest(day: first, animated: false)
+                }
+            } else {
+                searchSections = []
+                scrollRequest = ScrollRequest(day: calendar.startOfDay(for: Date()), animated: false)
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .popupDidOpen)) { _ in
             displayedMonth = Date()
             now = Date()
+            let wasSearching = isSearching
+            searchQuery = ""
+            searchSections = []
+            // Take focus so you can type a search immediately (next runloop,
+            // once the reused panel is key again).
+            DispatchQueue.main.async { searchFocused = true }
             let today = calendar.startOfDay(for: Date())
             let windowIsInitial = initialWindow(around: today).map {
                 $0.start == agendaStart && $0.end == agendaEnd
             } == true
-            if today == lastLoadedDay, windowIsInitial {
+            // After a search the list sits deep in the result set; the bare
+            // scroll-to-today fast path can't reliably climb back, so fall
+            // through to a reload (the cold-open path that repositions cleanly).
+            if !wasSearching, today == lastLoadedDay, windowIsInitial {
                 // Same day, initial window, and EventKit changes trigger
                 // their own reload — the data is still valid. Just jump.
                 scrollRequest = ScrollRequest(day: today, animated: false)

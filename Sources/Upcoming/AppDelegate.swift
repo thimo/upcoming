@@ -547,15 +547,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case 53: // escape
                 self.closePopup()
                 return nil
-            case 124, 125: // right / down → forward
+            case 125: // down → next day (⌘ = week)
                 NotificationCenter.default.post(
                     name: .navigateAgendaDay, object: nil, userInfo: ["delta": step])
                 return nil
-            case 123, 126: // left / up → backward
+            case 126: // up → previous day
                 NotificationCenter.default.post(
                     name: .navigateAgendaDay, object: nil, userInfo: ["delta": -step])
                 return nil
             default:
+                // Left/right (and typed text) fall through to the focused
+                // search field for cursor movement / editing.
                 return event
             }
         }

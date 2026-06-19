@@ -60,6 +60,8 @@ struct AgendaListView: View {
     let combinePills: Bool
     /// calendarID → display name, for count-pill labels.
     let calendarNames: [String: String]
+    /// Shown when there are no sections (varies for search vs. normal).
+    var emptyMessage: String = "No upcoming events"
     /// Pending scroll command; cleared after scrolling. The parent arms
     /// its window-edge triggers on that clear.
     @Binding var scrollRequest: ScrollRequest?
@@ -82,7 +84,7 @@ struct AgendaListView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     if sections.isEmpty {
-                        Text("No upcoming events")
+                        Text(emptyMessage)
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)

@@ -427,7 +427,8 @@ extension View {
             arrowHeight: PopoverMetrics.arrowHeight,
             arrowTopOffset: arrowOffset
         )
-        return padding(12)
+        return frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
             .frame(width: width)
             // Reserve the arrow strip on the side facing the popup; the
             // shape draws the card in the rest and the arrow into the strip.
