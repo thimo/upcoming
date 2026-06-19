@@ -19,6 +19,11 @@ struct ContentView: View {
     @State private var extraDotColors: [Date: [CalendarColor]] = [:]
     @State private var fetchedGridStarts: Set<Date> = []
     @State private var sections: [DaySection] = []
+    /// Day → section lookup for the grid's day-hover preview. The agenda
+    /// window's sections come free with the fetch; out-of-window grid
+    /// months get theirs from the on-demand grid fetch (`extraSections`).
+    @State private var windowSectionsByDay: [Date: DaySection] = [:]
+    @State private var extraSectionsByDay: [Date: DaySection] = [:]
     /// All events in the loaded window; window extensions fetch only the
     /// new 180-day slice and merge into this (a full-window refetch per
     /// extension gets seconds-slow once heavy scrolling has grown the
@@ -68,6 +73,7 @@ struct ContentView: View {
             MonthGridView(
                 displayedMonth: $displayedMonth,
                 dotColors: dotColors,
+                daySections: extraSectionsByDay.merging(windowSectionsByDay) { _, inWindow in inWindow },
                 calendar: calendar,
                 highlightedDay: topVisibleDay,
                 onSelectDay: { day in
@@ -245,11 +251,13 @@ struct ContentView: View {
                 to: windowEnd,
                 calendar: cal
             )
+            windowSectionsByDay = Dictionary(uniqueKeysWithValues: sections.map { ($0.day, $0) })
             // Dots for the whole window come free with this fetch.
             // Out-of-window extras are stale now (data changed); refill
             // below if the displayed month needs them.
             windowDotColors = EventGrouping.dotColors(events: agendaEvents, calendar: cal)
             extraDotColors = [:]
+            extraSectionsByDay = [:]
             fetchedGridStarts = []
             dotColors = windowDotColors
             lastLoadedDay = today
@@ -300,6 +308,14 @@ struct ContentView: View {
                 EventGrouping.dotColors(events: gridEvents, calendar: cal)
             ) { _, new in new }
             dotColors = windowDotColors.merging(extraDotColors) { inWindow, _ in inWindow }
+            // Sections too, so the day-hover preview works outside the
+            // agenda window.
+            let gridSections = EventGrouping.sections(
+                events: gridEvents, from: gridStart, to: gridEnd, calendar: cal
+            )
+            extraSectionsByDay.merge(
+                Dictionary(uniqueKeysWithValues: gridSections.map { ($0.day, $0) })
+            ) { _, new in new }
         }
     }
 
@@ -390,6 +406,7 @@ struct ContentView: View {
                 to: newEnd,
                 calendar: cal
             )
+            windowSectionsByDay = Dictionary(uniqueKeysWithValues: sections.map { ($0.day, $0) })
             windowDotColors = EventGrouping.dotColors(events: windowEvents, calendar: cal)
             dotColors = windowDotColors.merging(extraDotColors) { inWindow, _ in inWindow }
 

@@ -50,6 +50,16 @@ if [ -d "$SPM_BUNDLE" ]; then
   cp -R "$SPM_BUNDLE" "$APP_STAGING/Contents/Resources/"
 fi
 
+# WeatherKit (and any other managed entitlement) needs an embedded
+# provisioning profile for Developer ID distribution. Drop the downloaded
+# profile at Resources/embedded.provisionprofile and it gets bundled; the
+# WeatherKit entitlement degrades gracefully (no temperature) without it.
+PROFILE_SRC="Resources/embedded.provisionprofile"
+if [ -f "$PROFILE_SRC" ]; then
+  echo "==> Embedding provisioning profile"
+  cp "$PROFILE_SRC" "$APP_STAGING/Contents/embedded.provisionprofile"
+fi
+
 echo "==> Signing with: $SIGN_ID"
 if ! security find-identity -p codesigning -v | grep -qF "$SIGN_ID"; then
   echo "ERROR: signing identity not found in keychain: $SIGN_ID" >&2

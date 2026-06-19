@@ -14,10 +14,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let calendarService = CalendarService()
     let config = AppConfig()
+    /// Drives the display-only hover preview panel (event / day cards).
+    let previewModel = PreviewModel()
 
     private var statusItem: NSStatusItem?
     private var panel: NSPanel?
     private var hostingController: NSHostingController<AnyView>?
+    /// Interactive child panel for the hover preview.
+    private var previewPanel: NSPanel?
+    private var previewHosting: NSHostingController<AnyView>?
+    /// Polls the cursor while a preview is up; closes it once the cursor
+    /// leaves both the hovered row and the card (SwiftUI hover can't do this
+    /// — it only fires in the key window). `previewRowRect` is the hovered
+    /// row in screen coords; `previewOutsideTicks` debounces the close.
+    private var previewHoverTimer: Timer?
+    private var previewRowRect: CGRect = .zero
+    private var previewOutsideTicks = 0
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var keyMonitor: Any?
@@ -96,6 +108,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+
+        // Position/fill the hover preview panel as rows report hover.
+        previewModel.$request
+            .sink { [weak self] request in self?.updatePreview(request) }
+            .store(in: &subscriptions)
     }
 
     @objc private func didWake(_ note: Notification) {
@@ -200,6 +217,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let contentView = ContentView()
             .environmentObject(calendarService)
             .environmentObject(config)
+            .environmentObject(previewModel)
 
         // No sizingOptions: the panel dictates the size (clamped in
         // showPopup); the autolayout constraints stretch the SwiftUI
@@ -241,6 +259,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.contentView = visualEffect
         self.panel = panel
 
+        setupPreviewPanel()
+
         // Dismiss when the user switches Spaces, like every status-bar app.
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
@@ -253,6 +273,183 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func activeSpaceDidChange(_ note: Notification) {
         guard let panel, panel.isVisible else { return }
         closePopup()
+    }
+
+    // MARK: - Hover preview panel
+
+    /// A borderless, interactive panel for the hover previews. It's
+    /// allow-listed in the dismissal monitor so clicking inside it doesn't
+    /// tear down the popup; the card chrome (material + shadow) is drawn in
+    /// SwiftUI. Closing is governed by `previewHoverTimer`, not the panel.
+    private func setupPreviewPanel() {
+        let hosting = NSHostingController(rootView: AnyView(EmptyView()))
+        previewHosting = hosting
+
+        let preview = PreviewHostPanel(
+            contentRect: .zero,
+            styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
+            backing: .buffered,
+            defer: true
+        )
+        preview.isFloatingPanel = true
+        preview.level = .statusBar
+        // Native window shadow, which follows the card+arrow shape's alpha
+        // (Uncommitted's approach). A SwiftUI .shadow on the material card
+        // rendered as a stray box behind the content.
+        preview.hasShadow = true
+        preview.backgroundColor = .clear
+        preview.isOpaque = false
+        preview.isReleasedWhenClosed = false
+        preview.hidesOnDeactivate = false
+        // Interactive: the cursor can enter the card and click Join / links.
+        // It's allow-listed in the dismissal monitor so a click inside it
+        // doesn't tear down the popup.
+        preview.collectionBehavior = [.fullScreenAuxiliary, .transient]
+        preview.contentView = hosting.view
+        previewPanel = preview
+    }
+
+    private func previewCalendar() -> Calendar {
+        var cal = Calendar.current
+        cal.firstWeekday = 2 // Monday, matching ContentView
+        return cal
+    }
+
+    /// Positions and fills the preview panel for the hovered row, or hides
+    /// it. Sized to the SwiftUI content and placed beside the popup,
+    /// flipping to the left edge when there's no room on the right.
+    private func updatePreview(_ request: PreviewModel.Request?) {
+        guard let panel, panel.isVisible, let request,
+              let previewPanel, let previewHosting else {
+            stopPreviewTimer()
+            previewPanel?.orderOut(nil)
+            return
+        }
+
+        let cal = previewCalendar()
+        let cardWidth: CGFloat
+        let inner: AnyView
+        switch request.payload {
+        case .event(let event):
+            inner = AnyView(EventPopoverView(event: event, calendar: cal))
+            cardWidth = EventPopoverView.contentWidth
+        case .day(let section):
+            inner = AnyView(DayPopoverView(section: section, calendar: cal, now: Date()))
+            cardWidth = DayPopoverView.contentWidth
+        case .group(let events):
+            inner = AnyView(GroupPopoverView(events: events, calendar: cal))
+            cardWidth = GroupPopoverView.contentWidth
+        }
+
+        let visibleFrame = panel.screen?.visibleFrame
+            ?? NSScreen.main?.visibleFrame ?? panel.frame
+        let arrowW = PopoverMetrics.arrowWidth
+        let gap = PopoverMetrics.gap
+        let panelWidth = cardWidth + arrowW
+
+        // Right of the popup if the card fits there, else flip left.
+        let side: PanelSide = (panel.frame.maxX + gap + cardWidth <= visibleFrame.maxX)
+            ? .right : .left
+
+        func wrapped(_ offset: CGFloat) -> AnyView {
+            AnyView(inner.popoverCard(width: cardWidth, arrowSide: side, arrowOffset: offset))
+        }
+
+        // Measure height (the arrow offset doesn't affect it).
+        previewHosting.rootView = wrapped(PopoverMetrics.cornerRadius)
+        previewHosting.view.layoutSubtreeIfNeeded()
+        var fitting = previewHosting.view.fittingSize
+        if fitting.height < 1 { fitting = previewHosting.view.intrinsicContentSize }
+        let height = min(fitting.height, visibleFrame.height)
+        guard height > 1 else { stopPreviewTimer(); previewPanel.orderOut(nil); return }
+
+        // Horizontal: the arrow tip sits `gap` past the popup's edge.
+        var originX: CGFloat
+        switch side {
+        case .right: originX = panel.frame.maxX + gap - arrowW
+        case .left: originX = panel.frame.minX - gap - cardWidth
+        }
+        originX = max(visibleFrame.minX, min(originX, visibleFrame.maxX - panelWidth))
+
+        // Hovered row in screen coords (AppKit bottom-left), for the arrow
+        // aim and the cursor tracker.
+        let rowRect = NSRect(
+            x: panel.frame.minX + request.anchor.minX,
+            y: panel.frame.minY + (panel.frame.height - request.anchor.maxY),
+            width: request.anchor.width,
+            height: request.anchor.height
+        )
+
+        // Vertical: card top to row top, clamped to the visible frame.
+        var originY = rowRect.maxY - height
+        originY = max(visibleFrame.minY, min(originY, visibleFrame.maxY - height))
+
+        // Arrow points at the row's centre; offset measured from the card
+        // top, clamped so it stays on the straight part of the edge.
+        let r = PopoverMetrics.cornerRadius
+        var arrowOffset = (originY + height) - rowRect.midY - PopoverMetrics.arrowHeight / 2
+        arrowOffset = max(r, min(arrowOffset, height - r - PopoverMetrics.arrowHeight))
+
+        previewHosting.rootView = wrapped(arrowOffset)
+        previewPanel.setFrame(
+            NSRect(x: originX, y: originY, width: panelWidth, height: height),
+            display: true
+        )
+        if previewPanel.parent == nil {
+            panel.addChildWindow(previewPanel, ordered: .above)
+        }
+        previewPanel.orderFront(nil)
+        previewPanel.invalidateShadow() // shape changed → refit the native shadow
+
+        previewRowRect = rowRect
+        previewOutsideTicks = 0
+        startPreviewTimer()
+    }
+
+    private func startPreviewTimer() {
+        guard previewHoverTimer == nil else { return }
+        previewHoverTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.previewHoverTick() }
+        }
+    }
+
+    private func stopPreviewTimer() {
+        previewHoverTimer?.invalidate()
+        previewHoverTimer = nil
+        previewOutsideTicks = 0
+    }
+
+    /// Keeps the preview open while the cursor is over the row or the card,
+    /// closing after two ticks outside both (~100ms grace for the seam).
+    /// Also routes key-window status by cursor position: SwiftUI hover and
+    /// the pointing-hand cursor only run in the key window, so the card has
+    /// to become key for links/map to highlight without a click first.
+    private func previewHoverTick() {
+        guard let previewPanel, previewPanel.isVisible else { stopPreviewTimer(); return }
+        let cursor = NSEvent.mouseLocation
+        // Inflate both rects so the gap between the row and the card (popup
+        // edge → arrow tip) is covered — no dead zone to fall through.
+        let bridge: CGFloat = 12
+        let overCard = previewPanel.frame.contains(cursor)
+        let inside = overCard
+            || previewPanel.frame.insetBy(dx: -bridge, dy: -bridge).contains(cursor)
+            || previewRowRect.insetBy(dx: -bridge, dy: -bridge).contains(cursor)
+
+        if overCard {
+            if !previewPanel.isKeyWindow { previewPanel.makeKey() }
+        } else if let popup = panel, !popup.isKeyWindow {
+            popup.makeKey()
+        }
+
+        if inside {
+            previewOutsideTicks = 0
+        } else {
+            previewOutsideTicks += 1
+            if previewOutsideTicks >= 2 {
+                panel?.makeKey() // restore popup key before tearing down
+                previewModel.clear()
+            }
+        }
     }
 
     /// Breathing room kept below the popup (Fantastical leaves a similar
@@ -295,6 +492,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func closePopup() {
         statusItem?.button?.highlight(false)
+        stopPreviewTimer()
+        previewModel.clear()
+        // Child windows reappear with their parent; drop the relationship
+        // so reopening the popup doesn't flash the last preview.
+        if let previewPanel {
+            panel?.removeChildWindow(previewPanel)
+            previewPanel.orderOut(nil)
+        }
         panel?.orderOut(nil)
         removeEventMonitors()
         NotificationCenter.default.post(name: .popupDidClose, object: nil)
@@ -314,6 +519,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] event in
             guard let self, let panel = self.panel else { return event }
             if event.window == panel { return event }
+            if event.window == self.previewPanel { return event }
             if event.window == self.statusItem?.button?.window { return event }
             self.closePopup()
             return event
@@ -355,6 +561,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// reaches our key monitor. `.nonactivatingPanel` keeps the app itself
 /// from activating.
 final class PopupPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+/// Hover-preview panel. Becomes key (without activating the app) so the
+/// card's Join button and links are clickable, but never main.
+final class PreviewHostPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }

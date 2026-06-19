@@ -1,4 +1,5 @@
 import AppKit
+import CoreLocation
 @preconcurrency import EventKit
 import Foundation
 
@@ -179,9 +180,148 @@ public final class CalendarService: ObservableObject {
                 url: event.url,
                 location: event.location,
                 notes: event.notes
-            )
+            ),
+            notes: event.notes?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            url: event.url,
+            attendees: attendees(from: event),
+            alertText: alertText(from: event),
+            recurrenceText: recurrenceText(from: event),
+            latitude: event.structuredLocation?.geoLocation?.coordinate.latitude,
+            longitude: event.structuredLocation?.geoLocation?.coordinate.longitude
         )
     }
+
+    // MARK: - Popover field mapping
+
+    /// Attendee list for the detail popover: organiser first (synthesised
+    /// from `event.organizer` if it isn't in the attendee array), then the
+    /// rest in EventKit order. Birthday/holiday-style events have no
+    /// attendees and return [].
+    private nonisolated static func attendees(from event: EKEvent) -> [EventAttendee] {
+        let participants = event.attendees ?? []
+        // A lone attendee that is just the current user (own events Exchange
+        // sometimes tags) isn't worth a list.
+        guard participants.count > 1 || event.organizer != nil else { return [] }
+
+        let organizerURL = event.organizer?.url
+        var result: [EventAttendee] = participants.map { p in
+            EventAttendee(
+                name: displayName(p),
+                status: status(for: p.participantStatus),
+                isOrganizer: p.url == organizerURL,
+                isOptional: p.participantRole == .optional
+            )
+        }
+        // Organiser is often not listed among the attendees; prepend it.
+        if let organizer = event.organizer, !result.contains(where: { $0.isOrganizer }) {
+            result.insert(
+                EventAttendee(
+                    name: displayName(organizer),
+                    status: .accepted,
+                    isOrganizer: true
+                ),
+                at: 0
+            )
+        }
+        return result
+    }
+
+    private nonisolated static func displayName(_ participant: EKParticipant) -> String {
+        if let name = participant.name, !name.isEmpty { return name }
+        // Fall back to the email from the mailto: URL.
+        let url = participant.url.absoluteString
+        return url.hasPrefix("mailto:") ? String(url.dropFirst("mailto:".count)) : url
+    }
+
+    private nonisolated static func status(for status: EKParticipantStatus) -> EventAttendee.Status {
+        switch status {
+        case .accepted: return .accepted
+        case .declined: return .declined
+        case .tentative: return .tentative
+        default: return .noResponse // pending, unknown, delegated, …
+        }
+    }
+
+    /// First alarm rendered as Apple's "Alert …" line. Relative offsets
+    /// become "N minutes/hours before start" (0 → "at time of event");
+    /// absolute alarms become a date. Location/proximity alarms are skipped.
+    private nonisolated static func alertText(from event: EKEvent) -> String? {
+        guard let alarm = event.alarms?.first, alarm.structuredLocation == nil else { return nil }
+        if let absolute = alarm.absoluteDate {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            return "Alert on \(formatter.string(from: absolute))"
+        }
+        let offset = alarm.relativeOffset
+        if offset == 0 { return "Alert at time of event" }
+        let before = offset < 0
+        let magnitude = Int(abs(offset))
+        return "Alert \(durationPhrase(seconds: magnitude)) \(before ? "before start" : "after start")"
+    }
+
+    /// "15 minutes", "1 hour", "2 days", … for the alert line.
+    private nonisolated static func durationPhrase(seconds: Int) -> String {
+        let units: [(Int, String)] = [(86_400, "day"), (3_600, "hour"), (60, "minute")]
+        for (size, name) in units where seconds % size == 0 && seconds >= size {
+            let count = seconds / size
+            return "\(count) \(name)\(count == 1 ? "" : "s")"
+        }
+        return "\(seconds) second\(seconds == 1 ? "" : "s")"
+    }
+
+    /// Apple-style natural-language recurrence for the common rules
+    /// (daily/weekly/monthly/yearly + interval + weekly day list).
+    /// Exotic rules fall back to a bare "Repeats".
+    private nonisolated static func recurrenceText(from event: EKEvent) -> String? {
+        guard let rule = event.recurrenceRules?.first else { return nil }
+        let interval = max(rule.interval, 1)
+
+        let unit: String
+        switch rule.frequency {
+        case .daily: unit = "day"
+        case .weekly: unit = "week"
+        case .monthly: unit = "month"
+        case .yearly: unit = "year"
+        @unknown default: return "Repeats"
+        }
+
+        var text: String
+        if interval == 1 {
+            text = "Repeats every \(unit)"
+        } else {
+            text = "Repeats every \(interval) \(unit)s"
+        }
+
+        if rule.frequency == .weekly, let days = rule.daysOfTheWeek, !days.isEmpty {
+            let names = days
+                .map(\.dayOfTheWeek)
+                .sorted { $0.rawValue < $1.rawValue }
+                .map { weekdayName($0) }
+            text += " on \(listPhrase(names))"
+        }
+        return text
+    }
+
+    private nonisolated static func weekdayName(_ day: EKWeekday) -> String {
+        let symbols = Calendar.current.standaloneWeekdaySymbols // Sunday-first
+        let index = day.rawValue - 1 // EKWeekday.sunday == 1
+        return symbols.indices.contains(index) ? symbols[index] : ""
+    }
+
+    /// "Monday", "Monday and Thursday", "Monday, Wednesday and Friday".
+    private nonisolated static func listPhrase(_ items: [String]) -> String {
+        switch items.count {
+        case 0: return ""
+        case 1: return items[0]
+        case 2: return "\(items[0]) and \(items[1])"
+        default: return "\(items.dropLast().joined(separator: ", ")) and \(items.last!)"
+        }
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 extension CalendarColor {

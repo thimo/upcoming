@@ -6,5 +6,11 @@
 	     access unless the calendars entitlement is present. -->
 	<key>com.apple.security.personal-information.calendars</key>
 	<true/>
+	<!-- Temperature on the event popover's map card. Requires both the
+	     WeatherKit capability on nl.defrog.upcoming AND the embedded
+	     provisioning profile (Resources/embedded.provisionprofile, copied
+	     in by build.sh) — without the profile the app fails to launch. -->
+	<key>com.apple.developer.weatherkit</key>
+	<true/>
 </dict>
 </plist>

@@ -7,6 +7,8 @@ import UpcomingCore
 struct MonthGridView: View {
     @Binding var displayedMonth: Date
     let dotColors: [Date: [CalendarColor]]
+    /// Day → section for the day-hover preview (nil = no events that day).
+    let daySections: [Date: DaySection]
     let calendar: Calendar
     @Environment(\.colorScheme) private var colorScheme
     /// Day at the top of the agenda list (grid-follows-list highlight);
@@ -214,6 +216,7 @@ struct MonthGridView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { onSelectDay(day) }
+        .previewHoverIfPresent(daySections[calendar.startOfDay(for: day)].map { .day($0) })
     }
 }
 

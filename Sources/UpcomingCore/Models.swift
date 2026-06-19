@@ -50,6 +50,34 @@ public struct CalendarInfo: Identifiable, Equatable {
     }
 }
 
+/// One invitee on an event, for the Apple-Calendar-style detail popover.
+/// Status mirrors EKParticipantStatus, collapsed to the cases the popover
+/// renders (a glyph per attendee).
+public struct EventAttendee: Identifiable, Equatable {
+    public enum Status: Equatable {
+        case accepted
+        case declined
+        case tentative
+        /// Invited, no response yet (EventKit's pending/unknown).
+        case noResponse
+    }
+
+    /// Display name, or the bare email when no name is available.
+    public let name: String
+    public let status: Status
+    public let isOrganizer: Bool
+    public let isOptional: Bool
+
+    public var id: String { name }
+
+    public init(name: String, status: Status, isOrganizer: Bool = false, isOptional: Bool = false) {
+        self.name = name
+        self.status = status
+        self.isOrganizer = isOrganizer
+        self.isOptional = isOptional
+    }
+}
+
 /// A single event occurrence, mapped from EKEvent so views and tests
 /// never touch EventKit types.
 public struct EventItem: Identifiable, Equatable {
@@ -77,6 +105,23 @@ public struct EventItem: Identifiable, Equatable {
     public let eventIdentifier: String
     public let location: String?
     public let videoCallURL: URL?
+    /// Free-text notes / description (the EKEvent.notes body).
+    public let notes: String?
+    /// The event's own URL field (distinct from the derived videoCallURL);
+    /// shown in the popover's notes/URL card.
+    public let url: URL?
+    /// Invitees, for the popover's attendee list.
+    public let attendees: [EventAttendee]
+    /// Pre-formatted alert line ("Alert 15 minutes before start"), if the
+    /// event carries an alarm. nil = no alarm row.
+    public let alertText: String?
+    /// Pre-formatted recurrence line ("Repeats every week on Monday and
+    /// Thursday"), if recurring. nil = not recurring / unparseable.
+    public let recurrenceText: String?
+    /// Structured-location coordinate, when EventKit provides one; lets the
+    /// popover map skip geocoding. nil → the view geocodes `location`.
+    public let latitude: Double?
+    public let longitude: Double?
 
     public init(
         id: String,
@@ -92,7 +137,14 @@ public struct EventItem: Identifiable, Equatable {
         isTentative: Bool = false,
         eventIdentifier: String = "",
         location: String? = nil,
-        videoCallURL: URL? = nil
+        videoCallURL: URL? = nil,
+        notes: String? = nil,
+        url: URL? = nil,
+        attendees: [EventAttendee] = [],
+        alertText: String? = nil,
+        recurrenceText: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil
     ) {
         self.id = id
         self.title = title
@@ -108,6 +160,13 @@ public struct EventItem: Identifiable, Equatable {
         self.eventIdentifier = eventIdentifier
         self.location = location
         self.videoCallURL = videoCallURL
+        self.notes = notes
+        self.url = url
+        self.attendees = attendees
+        self.alertText = alertText
+        self.recurrenceText = recurrenceText
+        self.latitude = latitude
+        self.longitude = longitude
     }
 }
 
