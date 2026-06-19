@@ -60,6 +60,11 @@ struct ContentView: View {
     /// and held in state — set together with the scroll request so the list
     /// lands on the next match reliably (mirrors the agenda's own reload).
     @State private var searchSections: [DaySection] = []
+    /// A wide event corpus (±2y) fetched once per search session, so search
+    /// reaches well beyond the loaded agenda window. Until it loads, search
+    /// falls back to the in-memory window for instant (partial) results.
+    @State private var searchEvents: [EventItem] = []
+    @State private var searchCorpusLoaded = false
     /// Focus for the search field — taken on open so you can type straight away.
     @FocusState private var searchFocused: Bool
 
@@ -84,19 +89,52 @@ struct ContentView: View {
     private var isSearching: Bool { !trimmedQuery.isEmpty }
 
     /// Events in the loaded window whose title or location matches the query,
-    /// ordered upcoming-first: today-onward ascending, then past matches
-    /// most-recent-first below. The list opens on the next match (row 0 —
-    /// reliable, unlike scrolling to a mid-list day); scroll down for past.
+    /// ordered upcoming-first but each block chronological: today-onward
+    /// ascending, then the past (also ascending) below. The list opens on the
+    /// next match (row 0 — reliable, unlike scrolling to a mid-list day);
+    /// scroll down for past matches.
     private func computeSearchSections() -> [DaySection] {
         let query = trimmedQuery
-        guard !query.isEmpty, let start = agendaStart, let end = agendaEnd else { return [] }
-        let matches = windowEvents.filter { event in
+        guard !query.isEmpty else { return [] }
+        // The wide corpus once it's fetched; the loaded window meanwhile.
+        let source = searchCorpusLoaded ? searchEvents : windowEvents
+        let matches = source.filter { event in
             event.title.localizedCaseInsensitiveContains(query)
                 || (event.location?.localizedCaseInsensitiveContains(query) ?? false)
         }
-        let all = EventGrouping.sections(events: matches, from: start, to: end, calendar: calendar)
-        let today = calendar.startOfDay(for: Date())
-        return all.filter { $0.day >= today } + all.filter { $0.day < today }.reversed()
+        // Group over the span the matches actually cover (not the agenda
+        // window, which the corpus can exceed).
+        let cal = calendar
+        guard let start = matches.map(\.start).min().map({ cal.startOfDay(for: $0) }),
+              let end = matches.map(\.end).max().map({ cal.startOfDay(for: $0) }) else { return [] }
+        let all = EventGrouping.sections(events: matches, from: start, to: end, calendar: cal)
+        let today = cal.startOfDay(for: Date())
+        return all.filter { $0.day >= today } + all.filter { $0.day < today }
+    }
+
+    /// Fetches a wide ±2-year event corpus for search, once per session.
+    private func loadSearchCorpus() {
+        let cal = calendar
+        let today = cal.startOfDay(for: Date())
+        guard let from = cal.date(byAdding: .year, value: -2, to: today),
+              let to = cal.date(byAdding: .year, value: 2, to: today) else { return }
+        let hidden = config.hiddenCalendarIDs
+        Task {
+            let events = await calendarService.events(
+                from: from, to: to, hiddenCalendarIDs: hidden
+            )
+            searchEvents = events
+            searchCorpusLoaded = true
+        }
+    }
+
+    /// Recompute results + park on the next match (row 0). Called when the
+    /// query changes and when the corpus finishes loading.
+    private func refreshSearch() {
+        searchSections = computeSearchSections()
+        if let first = searchSections.first?.day {
+            scrollRequest = ScrollRequest(day: first, animated: false)
+        }
     }
 
     /// Search box above the agenda; filters within the loaded window.
@@ -195,16 +233,16 @@ struct ContentView: View {
         }
         .onChange(of: searchQuery) {
             if isSearching {
-                searchSections = computeSearchSections()
-                // Results are upcoming-first, so row 0 is the next match;
-                // scroll there (row 0 is reliable, mid-list is not).
-                if let first = searchSections.first?.day {
-                    scrollRequest = ScrollRequest(day: first, animated: false)
-                }
+                if !searchCorpusLoaded { loadSearchCorpus() }
+                refreshSearch()
             } else {
                 searchSections = []
                 scrollRequest = ScrollRequest(day: calendar.startOfDay(for: Date()), animated: false)
             }
+        }
+        .onChange(of: searchEvents) {
+            // Corpus arrived — refresh the (currently partial) results.
+            if isSearching { refreshSearch() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .popupDidOpen)) { _ in
             displayedMonth = Date()
@@ -212,6 +250,8 @@ struct ContentView: View {
             let wasSearching = isSearching
             searchQuery = ""
             searchSections = []
+            searchEvents = []
+            searchCorpusLoaded = false
             // Take focus so you can type a search immediately (next runloop,
             // once the reused panel is key again).
             DispatchQueue.main.async { searchFocused = true }
