@@ -135,26 +135,17 @@ public final class CalendarService: ObservableObject {
     }
 
     private nonisolated static func isDeclinedByMe(_ event: EKEvent) -> Bool {
-        myParticipantStatus(event) == .declined
+        ParticipantStatus.isDeclined(myParticipantStatus(event))
     }
 
-    private nonisolated static func myParticipantStatus(_ event: EKEvent) -> EKParticipantStatus? {
+    /// The current user's participation, mapped to the EventKit-free enum.
+    /// `nil` when the user isn't an attendee (own attendee-less events).
+    private nonisolated static func myParticipantStatus(_ event: EKEvent) -> ParticipantStatus? {
         guard let attendees = event.attendees,
               let me = attendees.first(where: { $0.isCurrentUser }) else {
             return nil
         }
-        return me.participantStatus
-    }
-
-    /// Unanswered invitation. Exchange/Google deliver "needs action" as
-    /// `.unknown` rather than `.pending` (verified empirically 2026-06-12),
-    /// so both count — but only when the user actually appears in the
-    /// attendee list (own attendee-less events report no status at all).
-    private nonisolated static func isPendingInvitation(_ event: EKEvent) -> Bool {
-        switch myParticipantStatus(event) {
-        case .pending, .unknown: return true
-        default: return false
-        }
+        return ParticipantStatus(me.participantStatus)
     }
 
     private nonisolated static func eventItem(from event: EKEvent) -> EventItem {
@@ -172,8 +163,8 @@ public final class CalendarService: ObservableObject {
             isAllDay: event.isAllDay,
             isBirthday: event.calendar?.type == .birthday,
             isRecurring: event.hasRecurrenceRules,
-            isPendingInvitation: isPendingInvitation(event),
-            isTentative: myParticipantStatus(event) == .tentative,
+            isPendingInvitation: ParticipantStatus.isPending(myParticipantStatus(event)),
+            isTentative: ParticipantStatus.isTentative(myParticipantStatus(event)),
             eventIdentifier: baseID,
             location: event.location?.trimmingCharacters(in: .whitespacesAndNewlines),
             videoCallURL: VideoCallDetector.detect(
@@ -207,7 +198,7 @@ public final class CalendarService: ObservableObject {
         var result: [EventAttendee] = participants.map { p in
             EventAttendee(
                 name: displayName(p),
-                status: status(for: p.participantStatus),
+                status: ParticipantStatus(p.participantStatus).attendeeStatus,
                 isOrganizer: p.url == organizerURL,
                 isOptional: p.participantRole == .optional
             )
@@ -233,14 +224,6 @@ public final class CalendarService: ObservableObject {
         return url.hasPrefix("mailto:") ? String(url.dropFirst("mailto:".count)) : url
     }
 
-    private nonisolated static func status(for status: EKParticipantStatus) -> EventAttendee.Status {
-        switch status {
-        case .accepted: return .accepted
-        case .declined: return .declined
-        case .tentative: return .tentative
-        default: return .noResponse // pending, unknown, delegated, …
-        }
-    }
 
     /// First alarm rendered as Apple's "Alert …" line. Relative offsets
     /// become "N minutes/hours before start" (0 → "at time of event");
@@ -322,6 +305,23 @@ public final class CalendarService: ObservableObject {
 
 private extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
+}
+
+extension ParticipantStatus {
+    /// Bridge EventKit's enum to the testable mirror. `@unknown` future
+    /// cases collapse to `.other` (treated as no-response everywhere).
+    init(_ status: EKParticipantStatus) {
+        switch status {
+        case .unknown: self = .unknown
+        case .pending: self = .pending
+        case .accepted: self = .accepted
+        case .declined: self = .declined
+        case .tentative: self = .tentative
+        case .delegated: self = .delegated
+        case .completed, .inProcess: self = .other
+        @unknown default: self = .other
+        }
+    }
 }
 
 extension CalendarColor {

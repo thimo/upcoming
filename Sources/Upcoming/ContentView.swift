@@ -495,16 +495,23 @@ struct ContentView: View {
               let windowStart = agendaStart, let windowEnd = agendaEnd else { return }
         let cal = calendar
 
-        if let pastEdge = cal.date(byAdding: .day, value: Self.edgeThresholdDays, to: windowStart),
-           day < pastEdge {
+        switch AgendaWindow.edge(
+            for: day,
+            windowStart: windowStart,
+            windowEnd: windowEnd,
+            thresholdDays: Self.edgeThresholdDays,
+            calendar: cal
+        ) {
+        case .past:
             // Prepending grows the content above the viewport, which would
             // visually teleport the list; re-anchor on the day that
             // triggered the load to keep the jump within a section.
             extendWindow(intoPast: true, reanchorOn: day)
-        } else if let futureEdge = cal.date(byAdding: .day, value: -Self.edgeThresholdDays, to: windowEnd),
-                  day > futureEdge {
+        case .future:
             // Appending doesn't move existing content; no re-anchor needed.
             extendWindow(intoPast: false, reanchorOn: nil)
+        case .none:
+            break
         }
     }
 
@@ -516,19 +523,15 @@ struct ContentView: View {
         let cal = calendar
         let hidden = config.hiddenCalendarIDs
 
-        let newStart: Date
-        let newEnd: Date
-        if intoPast {
-            guard let extended = cal.date(byAdding: .day, value: -Self.extendByDays, to: windowStart)
-            else { return }
-            newStart = extended
-            newEnd = windowEnd
-        } else {
-            guard let extended = cal.date(byAdding: .day, value: Self.extendByDays, to: windowEnd)
-            else { return }
-            newStart = windowStart
-            newEnd = extended
-        }
+        guard let slice = AgendaWindow.slice(
+            intoPast: intoPast,
+            windowStart: windowStart,
+            windowEnd: windowEnd,
+            extendByDays: Self.extendByDays,
+            calendar: cal
+        ) else { return }
+        let newStart = slice.newStart
+        let newEnd = slice.newEnd
 
         extendingWindow = true
         agendaStart = newStart
@@ -537,8 +540,8 @@ struct ContentView: View {
 
         Task {
             let delta = await calendarService.events(
-                from: intoPast ? newStart : windowEnd,
-                to: intoPast ? windowStart : newEnd,
+                from: slice.fetchFrom,
+                to: slice.fetchTo,
                 hiddenCalendarIDs: hidden
             )
             // A full reload (EventKit change, settings, re-open) started
@@ -546,8 +549,7 @@ struct ContentView: View {
             guard generation == reloadGeneration else { return }
 
             // Events spanning the old boundary arrive in both fetches.
-            let known = Set(windowEvents.map(\.id))
-            windowEvents.append(contentsOf: delta.filter { !known.contains($0.id) })
+            windowEvents = AgendaWindow.merge(existing: windowEvents, delta: delta)
 
             sections = EventGrouping.sections(
                 events: windowEvents,

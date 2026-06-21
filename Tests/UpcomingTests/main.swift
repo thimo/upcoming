@@ -174,6 +174,82 @@ expect(
     "multi-day event dots every spanned day, midnight end excluded"
 )
 
+// MARK: - ParticipantStatus (declined filter family)
+
+expect(ParticipantStatus.isDeclined(.declined), "declined status is declined")
+expect(!ParticipantStatus.isDeclined(.accepted), "accepted is not declined")
+expect(!ParticipantStatus.isDeclined(nil), "non-attendee (own event) is not declined")
+
+expect(ParticipantStatus.isPending(.pending), "pending invitation is pending")
+expect(
+    ParticipantStatus.isPending(.unknown),
+    "unknown counts as pending — Exchange/Google deliver needs-action as unknown"
+)
+expect(!ParticipantStatus.isPending(.accepted), "accepted is not pending")
+expect(!ParticipantStatus.isPending(nil), "non-attendee is not a pending invitation")
+
+expect(ParticipantStatus.isTentative(.tentative), "tentative status is tentative")
+expect(!ParticipantStatus.isTentative(.accepted), "accepted is not tentative")
+
+expect(ParticipantStatus.accepted.attendeeStatus == .accepted, "accepted → accepted glyph")
+expect(ParticipantStatus.declined.attendeeStatus == .declined, "declined → declined glyph")
+expect(ParticipantStatus.tentative.attendeeStatus == .tentative, "tentative → tentative glyph")
+expect(ParticipantStatus.pending.attendeeStatus == .noResponse, "pending → no-response glyph")
+expect(ParticipantStatus.unknown.attendeeStatus == .noResponse, "unknown → no-response glyph")
+expect(ParticipantStatus.delegated.attendeeStatus == .noResponse, "delegated → no-response glyph")
+expect(ParticipantStatus.other.attendeeStatus == .noResponse, "other → no-response glyph")
+
+// MARK: - AgendaWindow (infinite-scroll window math)
+
+let winStart = date(2026, 1, 1)
+let winEnd = date(2026, 12, 31)
+
+expect(
+    AgendaWindow.edge(for: date(2026, 1, 5), windowStart: winStart, windowEnd: winEnd, thresholdDays: 30) == .past,
+    "day within threshold of the start extends into the past"
+)
+expect(
+    AgendaWindow.edge(for: date(2026, 12, 20), windowStart: winStart, windowEnd: winEnd, thresholdDays: 30) == .future,
+    "day within threshold of the end extends into the future"
+)
+expect(
+    AgendaWindow.edge(for: date(2026, 6, 15), windowStart: winStart, windowEnd: winEnd, thresholdDays: 30) == .none,
+    "day in the middle does not extend the window"
+)
+expect(
+    AgendaWindow.edge(for: winStart, windowStart: winStart, windowEnd: winEnd, thresholdDays: 0) == .none,
+    "zero threshold: a day exactly on the edge does not trigger an extension"
+)
+
+let pastSlice = AgendaWindow.slice(intoPast: true, windowStart: winStart, windowEnd: winEnd, extendByDays: 180)
+expect(
+    pastSlice?.newStart == date(2025, 7, 5) && pastSlice?.newEnd == winEnd,
+    "past extension grows the start back by 180 days, end unchanged"
+)
+expect(
+    pastSlice?.fetchFrom == date(2025, 7, 5) && pastSlice?.fetchTo == winStart,
+    "past extension fetches only the new leading slice, up to the old start"
+)
+
+let futureSlice = AgendaWindow.slice(intoPast: false, windowStart: winStart, windowEnd: winEnd, extendByDays: 180)
+expect(
+    futureSlice?.newStart == winStart && futureSlice?.newEnd == date(2027, 6, 29),
+    "future extension grows the end forward by 180 days, start unchanged"
+)
+expect(
+    futureSlice?.fetchFrom == winEnd && futureSlice?.fetchTo == date(2027, 6, 29),
+    "future extension fetches only the new trailing slice, from the old end"
+)
+
+let known = event(id: "known", start: date(2026, 6, 1, 9), end: date(2026, 6, 1, 10))
+let boundary = event(id: "boundary", start: date(2026, 6, 2, 9), end: date(2026, 6, 2, 10))
+let fresh = event(id: "fresh", start: date(2026, 6, 3, 9), end: date(2026, 6, 3, 10))
+let merged = AgendaWindow.merge(existing: [known, boundary], delta: [boundary, fresh])
+expect(
+    merged.map(\.id) == ["known", "boundary", "fresh"],
+    "merge appends new events and drops boundary-spanning duplicates, order preserved"
+)
+
 // MARK: - Result
 
 print("\(passed) passed, \(failed) failed")
