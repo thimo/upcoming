@@ -15,9 +15,7 @@
 //   Corner radius:  ~232 circular ≈ Apple's 185.4 continuous squircle
 //   Drop shadow:    28px blur, 12px down, black 50%
 //
-// The glyph itself is white on the gradient; three dots get a coloured
-// halo in the palette colours — the same trick as Uncommitted's ring
-// nodes, and a nod to the per-calendar dots in the month grid.
+// The glyph itself is plain white on the gradient.
 
 import Foundation
 import AppKit
@@ -179,36 +177,6 @@ private func render(size: CGFloat) -> NSImage {
         height: inner * 0.54
     )
     let geometry = CalendarGlyph.geometry(fitting: glyphRect)
-
-    // Coloured halos under three of the dots, against the contrasting
-    // end of the gradient: pink top-right (blue zone), blue bottom-left
-    // (pink zone). Spill outside the panel is covered by the white frame
-    // drawn after. All three positions are dots the glyph actually draws.
-    let coloredDots: [(CGPoint, (r: CGFloat, g: CGFloat, b: CGFloat))] = [
-        (geometry.dotCenters[0][3], pink),
-        (geometry.dotCenters[1][1], purple),
-        (geometry.dotCenters[2][0], blue),
-    ]
-    for (center, rgb) in coloredDots {
-        let haloColors = [
-            NSColor(srgbRed: rgb.r, green: rgb.g, blue: rgb.b, alpha: 1.0).cgColor,
-            NSColor(srgbRed: rgb.r, green: rgb.g, blue: rgb.b, alpha: 0.9).cgColor,
-            NSColor(srgbRed: rgb.r, green: rgb.g, blue: rgb.b, alpha: 0.0).cgColor,
-        ]
-        let halo = CGGradient(
-            colorsSpace: CGColorSpaceCreateDeviceRGB(),
-            colors: haloColors as CFArray,
-            locations: [0, 0.25, 1]
-        )!
-        ctx.drawRadialGradient(
-            halo,
-            startCenter: center,
-            startRadius: 0,
-            endCenter: center,
-            endRadius: geometry.dotRadius * 3.2,
-            options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
-        )
-    }
 
     ctx.restoreGState() // body clip
 
