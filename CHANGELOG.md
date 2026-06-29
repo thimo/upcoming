@@ -3,6 +3,21 @@
 User-facing notes for each release. Bullets are curated — not a 1:1
 mapping of commits.
 
+## v0.4.0 — 2026-06-29
+
+### New
+- Search your agenda: a search field scans a wide window of events and
+  lists every match in chronological order, with a TODAY divider so past
+  and upcoming results stay oriented.
+- Create events from the agenda: each day has a + button that opens
+  Calendar to add a new event on that day.
+
+### Improvements
+- The agenda's video-call button now shows a clear hover state — a soft
+  accent pill and a pointing-hand cursor — so it reads as clickable.
+- App icon cleanup: dropped the coloured glow behind the glyph dots for a
+  crisper look.
+
 ## v0.3.0 — 2026-06-19
 
 ### New
