@@ -134,6 +134,41 @@ public final class CalendarService: ObservableObject {
         }
     }
 
+    // MARK: - Writing
+
+    /// Creates a placeholder 1-hour event on `day` (the next whole hour
+    /// from now, in the default new-event calendar) and returns its
+    /// identifier, so the caller can open it in Calendar.app to finish
+    /// editing. Upcoming is otherwise read-only — this single write backs
+    /// the agenda's per-day "+", standing in for Calendar's own new-event
+    /// action (which has no public deep link). Returns nil when there's no
+    /// writable calendar or the save fails.
+    public func createEvent(on day: Date) -> String? {
+        guard authState == .authorized else { return nil }
+        guard let target = store.defaultCalendarForNewEvents
+            ?? store.calendars(for: .event).first(where: { $0.allowsContentModifications })
+        else { return nil }
+
+        let cal = Calendar.current
+        var hour = cal.component(.hour, from: Date()) + 1
+        if hour > 22 { hour = 9 } // late night → next morning slot
+        let start = cal.date(bySettingHour: hour, minute: 0, second: 0, of: day)
+            ?? cal.startOfDay(for: day)
+
+        let event = EKEvent(eventStore: store)
+        event.calendar = target
+        event.title = "New Event"
+        event.startDate = start
+        event.endDate = start.addingTimeInterval(3600)
+
+        do {
+            try store.save(event, span: .thisEvent, commit: true)
+            return event.eventIdentifier
+        } catch {
+            return nil
+        }
+    }
+
     private nonisolated static func isDeclinedByMe(_ event: EKEvent) -> Bool {
         ParticipantStatus.isDeclined(myParticipantStatus(event))
     }

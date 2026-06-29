@@ -26,8 +26,15 @@ enum CalendarAppOpener {
     }()
 
     static func show(_ event: EventItem) {
-        guard !event.eventIdentifier.isEmpty,
-              let identifier = event.eventIdentifier.addingPercentEncoding(
+        showEvent(identifier: event.eventIdentifier)
+    }
+
+    /// Opens an event by its raw EventKit identifier — used both for
+    /// existing events (`show`) and for a freshly created one (the agenda's
+    /// per-day "+", which finishes editing in Calendar).
+    static func showEvent(identifier rawIdentifier: String) {
+        guard !rawIdentifier.isEmpty,
+              let identifier = rawIdentifier.addingPercentEncoding(
                 withAllowedCharacters: identifierAllowed
               ),
               let url = URL(

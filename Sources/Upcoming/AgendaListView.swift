@@ -37,6 +37,37 @@ private struct RowHover: ViewModifier {
     }
 }
 
+/// Day header row for the agenda: the shared `DayHeaderView` plus a
+/// "+" that starts a new event on this day. The "+" lives here, not inside
+/// `DayHeaderView`, so the read-only day-hover preview (which reuses
+/// `DayHeaderView`) stays clean. Always visible in a light tint, brightening
+/// to full on hover.
+private struct DaySectionHeader: View {
+    let day: Date
+    let calendar: Calendar
+    let onAdd: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            DayHeaderView(day: day, calendar: calendar)
+            Spacer(minLength: 8)
+            Button(action: onAdd) {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .opacity(isHovered ? 1 : 0.5)
+            }
+            .buttonStyle(GhostButtonStyle())
+            .pointingHandCursor()
+            .help("New event on this day")
+            .accessibilityLabel("New event")
+        }
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+    }
+}
+
 /// One-shot scroll command for the agenda list. The token makes every
 /// request unique, so requesting the same day twice still fires onChange.
 struct ScrollRequest: Equatable {
@@ -77,6 +108,9 @@ struct AgendaListView: View {
     /// Reports the day section currently at the top of the viewport, so
     /// the month grid can highlight it and follow along (grid-follows-list).
     let onTopDayChange: (Date) -> Void
+    /// Starts a new event on the given day (hover-revealed "+" in each day
+    /// header). Created in Calendar and opened there to finish editing.
+    var onAddEvent: (Date) -> Void = { _ in }
 
     @Environment(\.colorScheme) private var colorScheme
     /// Count-pills the user clicked open, keyed day+calendarID. Cleared
@@ -200,7 +234,11 @@ struct AgendaListView: View {
         let items = pillItems(for: section)
 
         return VStack(alignment: .leading, spacing: 6) {
-            DayHeaderView(day: section.day, calendar: calendar)
+            DaySectionHeader(
+                day: section.day,
+                calendar: calendar,
+                onAdd: { onAddEvent(section.day) }
+            )
             if !items.isEmpty {
                 FlowLayout(spacing: 3) {
                     ForEach(items) { item in

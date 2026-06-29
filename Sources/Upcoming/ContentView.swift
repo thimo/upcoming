@@ -225,7 +225,8 @@ struct ContentView: View {
                     // triggers and grid-follow (the result set is a flat
                     // filter of the loaded window, not the live agenda).
                     onSectionAppear: searching ? { _ in } : sectionAppeared,
-                    onTopDayChange: searching ? { _ in } : topDayChanged
+                    onTopDayChange: searching ? { _ in } : topDayChanged,
+                    onAddEvent: addEvent
                 )
             }
 
@@ -308,6 +309,18 @@ struct ContentView: View {
             : sections.last(where: { $0.day <= target })?.day
         if let destination, destination != anchor {
             scrollRequest = ScrollRequest(day: destination, animated: true)
+        }
+    }
+
+    /// Per-day "+": create a placeholder event on that day, then open it in
+    /// Calendar.app to finish editing (Upcoming has no event editor of its
+    /// own — by design). The short delay lets EventKit/Calendar index the
+    /// just-saved event before the ical:// deep link tries to navigate to it.
+    private func addEvent(on day: Date) {
+        guard let id = calendarService.createEvent(on: day) else { return }
+        AppDelegate.shared?.closePopup()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            CalendarAppOpener.showEvent(identifier: id)
         }
     }
 
