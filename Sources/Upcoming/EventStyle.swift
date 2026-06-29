@@ -281,16 +281,7 @@ struct EventRowView: View {
                     .frame(height: 15)
             }
             if let url = event.videoCallURL {
-                Button {
-                    VideoCallOpener.open(url)
-                } label: {
-                    Image(systemName: "video")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.accentColor)
-                        .frame(height: 15)
-                }
-                .buttonStyle(.borderless)
-                .help("Join video call")
+                VideoCallButton(url: url)
             }
         }
         .background(
@@ -330,6 +321,36 @@ struct EventRowView: View {
         formatter.timeStyle = .short
         formatter.dateStyle = .none
         return formatter.string(from: date)
+    }
+}
+
+/// Trailing "join video call" glyph in an event row. Borderless on its
+/// own, so it needs an explicit hover affordance: a soft accent-tinted
+/// pill fades in, the glyph fills (video → video.fill), and the cursor
+/// turns into a pointing hand — matching the app's other clickables.
+private struct VideoCallButton: View {
+    let url: URL
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            VideoCallOpener.open(url)
+        } label: {
+            Image(systemName: isHovered ? "video.fill" : "video")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.accentColor)
+                // Fixed box so the hover pill never reflows the row.
+                .frame(width: 22, height: 15)
+                .background(
+                    RoundedRectangle(cornerRadius: interactiveCornerRadius)
+                        .fill(Color.accentColor.opacity(isHovered ? 0.15 : 0))
+                        .animation(.easeOut(duration: 0.15), value: isHovered)
+                )
+        }
+        .buttonStyle(.borderless)
+        .onHover { isHovered = $0 }
+        .pointingHandCursor()
+        .help("Join video call")
     }
 }
 
