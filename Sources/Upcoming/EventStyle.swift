@@ -539,17 +539,24 @@ struct CardWithArrowShape: Shape {
 struct DayHeaderView: View {
     let day: Date
     let calendar: Calendar
+    /// Reference clock for the TODAY/TOMORROW label. Passed in (not read
+    /// from `isDateInToday`) so the label is a function of the view's
+    /// inputs — otherwise SwiftUI caches a stale label across a midnight
+    /// rollover, since neither `day` nor `calendar` encodes "now".
+    var now: Date = Date()
 
     var body: some View {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.setLocalizedDateFormatFromTemplate("d MMMM y")
 
-        let isToday = calendar.isDateInToday(day)
+        let today = calendar.startOfDay(for: now)
+        let isToday = calendar.isDate(day, inSameDayAs: today)
         let name: String
         if isToday {
             name = "TODAY"
-        } else if calendar.isDateInTomorrow(day) {
+        } else if let tomorrow = calendar.date(byAdding: .day, value: 1, to: today),
+                  calendar.isDate(day, inSameDayAs: tomorrow) {
             name = "TOMORROW"
         } else {
             let weekday = DateFormatter()

@@ -3,6 +3,13 @@
 User-facing notes for each release. Bullets are curated — not a 1:1
 mapping of commits.
 
+## v0.4.1 — 2026-06-30
+
+### Fixes
+- The agenda's day labels (TODAY / TOMORROW) no longer get stuck on the
+  previous day's wording after midnight — the header now refreshes the
+  date when you reopen the popup, so today reads "TODAY".
+
 ## v0.4.0 — 2026-06-29
 
 ### New

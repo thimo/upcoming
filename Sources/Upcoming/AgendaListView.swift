@@ -45,12 +45,13 @@ private struct RowHover: ViewModifier {
 private struct DaySectionHeader: View {
     let day: Date
     let calendar: Calendar
+    let now: Date
     let onAdd: () -> Void
     @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: 6) {
-            DayHeaderView(day: day, calendar: calendar)
+            DayHeaderView(day: day, calendar: calendar, now: now)
             Spacer(minLength: 8)
             Button(action: onAdd) {
                 Image(systemName: "plus")
@@ -237,6 +238,7 @@ struct AgendaListView: View {
             DaySectionHeader(
                 day: section.day,
                 calendar: calendar,
+                now: now,
                 onAdd: { onAddEvent(section.day) }
             )
             if !items.isEmpty {
