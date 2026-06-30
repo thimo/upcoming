@@ -105,6 +105,10 @@ sleep 0.2
 rm -rf "$APP_INSTALL"
 cp -R "$APP_STAGING" "$APP_INSTALL"
 
+# Relaunch so the menu bar item comes back right after a rebuild.
+echo "==> Relaunching"
+open "$APP_INSTALL"
+
 echo
-echo "Done. Open $APP_INSTALL to run — it lives in the menu bar (no Dock icon)."
+echo "Done. Running in the menu bar (no Dock icon)."
 echo "First launch prompts for Calendars access."
