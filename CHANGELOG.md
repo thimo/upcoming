@@ -3,7 +3,7 @@
 User-facing notes for each release. Bullets are curated — not a 1:1
 mapping of commits.
 
-## Unreleased
+## v0.5.0 — 2026-07-02
 
 ### New
 - Join your next meeting from anywhere: a global shortcut (default ⌘⇧J,
