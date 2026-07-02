@@ -33,6 +33,23 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
+            // Startup first: "Open at login" is the one setting everyone
+            // touches right after installing; the rest are later tweaks.
+            Section("Startup") {
+                Toggle("Open at login", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, newValue in
+                        do {
+                            if newValue {
+                                try SMAppService.mainApp.register()
+                            } else {
+                                try SMAppService.mainApp.unregister()
+                            }
+                        } catch {
+                            launchAtLogin = SMAppService.mainApp.status == .enabled
+                        }
+                    }
+            }
+
             Section {
                 ShortcutRecorderRow(label: "Toggle popup", shortcut: $config.globalShortcut)
                 ShortcutRecorderRow(label: "Join next video call", shortcut: $config.joinShortcut)
@@ -64,7 +81,7 @@ struct GeneralSettingsView: View {
 
             Section {
                 Toggle(
-                    "Combine multiple all-day events from the same calendar",
+                    "Combine all-day events per calendar",
                     isOn: $config.combineAllDayPills
                 )
             } header: {
@@ -73,21 +90,6 @@ struct GeneralSettingsView: View {
                 Text("Days where one calendar has several all-day events show a single count pill; click it to expand.")
                     .font(.caption)
                     .foregroundStyle(.primary.opacity(0.60))
-            }
-
-            Section("Startup") {
-                Toggle("Open at login", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { _, newValue in
-                        do {
-                            if newValue {
-                                try SMAppService.mainApp.register()
-                            } else {
-                                try SMAppService.mainApp.unregister()
-                            }
-                        } catch {
-                            launchAtLogin = SMAppService.mainApp.status == .enabled
-                        }
-                    }
             }
 
             Section("Updates") {

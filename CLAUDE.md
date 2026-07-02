@@ -90,9 +90,10 @@ Three SPM targets (pattern copied from `~/src/uncommitted`):
 
 ## Roadmap (rough order)
 
-1. Settings cleanup (layout/labels/ordering of the tabs).
+Empty — next items come from Thimo / docs/spec.md's wishlist.
 
-Done: README refreshed (2026-07-02). Releases + Sparkle auto-update draaien (release.sh, appcast.xml;
+Done: Settings cleanup + README refreshed (2026-07-02). Updates stays a
+General-tab section on purpose — parity with Uncommitted. Releases + Sparkle auto-update draaien (release.sh, appcast.xml;
 v0.4.1 live). App icon done: Resources/make-icon.swift — Uncommitted's
 background recipe + palette, calendar card glyph with punched dot grid,
 three dots glowing in the palette colours. Menu bar glyph met dagnummer

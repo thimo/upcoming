@@ -17,6 +17,10 @@ mapping of commits.
 - Copy a meeting link straight from the event popover: a link icon next
   to Join puts the call URL on the clipboard, ready to paste into a chat.
 
+### Improvements
+- Settings tidy-up: Startup moved to the top of the General tab and the
+  all-day combine toggle got a shorter label.
+
 ## v0.4.1 — 2026-06-30
 
 ### Fixes
