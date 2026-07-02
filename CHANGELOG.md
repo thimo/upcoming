@@ -14,6 +14,8 @@ mapping of commits.
 - When that meeting is about to start (within 10 minutes) or already
   running, its agenda row shows a filled "Join · N min" button in place
   of the video icon — the same call the shortcut would open.
+- Copy a meeting link straight from the event popover: a link icon next
+  to Join puts the call URL on the clipboard, ready to paste into a chat.
 
 ## v0.4.1 — 2026-06-30
 

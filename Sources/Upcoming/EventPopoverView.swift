@@ -65,6 +65,7 @@ struct EventPopoverView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 8)
+            CopyLinkButton(url: url)
             Button {
                 VideoCallOpener.open(url)
                 AppDelegate.shared?.closePopup()
@@ -218,6 +219,38 @@ struct EventPopoverView: View {
             return "\(date.string(from: event.start))  \(time.string(from: event.start)) – \(time.string(from: event.end))"
         }
         return "\(date.string(from: event.start)) \(time.string(from: event.start)) – \(date.string(from: event.end)) \(time.string(from: event.end))"
+    }
+}
+
+/// Copies the meeting link (the original https URL, not the msteams:
+/// rewrite — it's for sharing) to the pasteboard. Sits next to Join in the
+/// video card; a brief green checkmark confirms the copy.
+private struct CopyLinkButton: View {
+    let url: URL
+    @State private var copied = false
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(url.absoluteString, forType: .string)
+            copied = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+        } label: {
+            Image(systemName: copied ? "checkmark" : "link")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(copied ? Color.green : Color.primary.opacity(0.70))
+                .frame(width: 22, height: 21)
+                .background(
+                    Circle().fill(Color.primary.opacity(isHovered ? 0.10 : 0))
+                        .animation(.easeOut(duration: 0.15), value: isHovered)
+                )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .pointingHandCursor()
+        .help("Copy meeting link")
     }
 }
 
