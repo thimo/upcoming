@@ -6,9 +6,15 @@ import UpcomingCore
 /// intercepts the key before any app sees it (unlike `addGlobalMonitor`
 /// which only observes) and doesn't require accessibility permissions
 /// (unlike CGEvent taps). Copied from Uncommitted.
+///
+/// Multiple instances coexist (popup toggle + join): each gets a unique
+/// `id`, and the handler passes events for other ids along the chain —
+/// every instance installs its own handler on the same application target,
+/// so without the id check the last-installed one would swallow them all.
 final class HotkeyManager {
     private var handlerRef: EventHandlerRef?
     private var hotkeyRef: EventHotKeyRef?
+    private let id: UInt32
 
     /// Called on the main thread when the registered hotkey fires.
     var onTrigger: (() -> Void)?
@@ -16,6 +22,10 @@ final class HotkeyManager {
     /// Four-character signature identifying our hotkey registration.
     /// "UPCM" → 0x5550434D.
     private static let signature: OSType = 0x5550_434D
+
+    init(id: UInt32) {
+        self.id = id
+    }
 
     func register(_ shortcut: GlobalShortcut) {
         unregister()
@@ -31,8 +41,22 @@ final class HotkeyManager {
         let handlerStatus = InstallEventHandler(
             GetApplicationEventTarget(),
             { (_, inEvent, userData) -> OSStatus in
-                guard let userData else { return OSStatus(eventNotHandledErr) }
+                guard let userData, let inEvent else { return OSStatus(eventNotHandledErr) }
+                var hotkeyID = EventHotKeyID()
+                GetEventParameter(
+                    inEvent,
+                    EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID),
+                    nil,
+                    MemoryLayout<EventHotKeyID>.size,
+                    nil,
+                    &hotkeyID
+                )
                 let mgr = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
+                guard hotkeyID.signature == HotkeyManager.signature,
+                      hotkeyID.id == mgr.id else {
+                    return OSStatus(eventNotHandledErr)
+                }
                 mgr.onTrigger?()
                 return noErr
             },
@@ -47,7 +71,7 @@ final class HotkeyManager {
         }
 
         // 2. Register the specific key combo.
-        let hotkeyID = EventHotKeyID(signature: Self.signature, id: 1)
+        let hotkeyID = EventHotKeyID(signature: Self.signature, id: id)
         let modifiers = carbonModifiers(for: shortcut)
         let hotkeyStatus = RegisterEventHotKey(
             UInt32(shortcut.keyCode),

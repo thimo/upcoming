@@ -33,8 +33,15 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Shortcut") {
-                ShortcutRecorderRow(shortcut: $config.globalShortcut)
+            Section {
+                ShortcutRecorderRow(label: "Toggle popup", shortcut: $config.globalShortcut)
+                ShortcutRecorderRow(label: "Join next video call", shortcut: $config.joinShortcut)
+            } header: {
+                Text("Shortcuts")
+            } footer: {
+                Text("Join opens the ongoing or about-to-start video meeting; when the next call is further out, a notification tells you when it is.")
+                    .font(.caption)
+                    .foregroundStyle(.primary.opacity(0.60))
             }
 
             Section {
@@ -186,12 +193,13 @@ struct CalendarsSettingsView: View {
 /// works in the active Settings window without extra permissions.
 /// Copied from Uncommitted.
 private struct ShortcutRecorderRow: View {
+    let label: String
     @Binding var shortcut: GlobalShortcut?
     @StateObject private var recorder = ShortcutRecorderState()
 
     var body: some View {
         HStack {
-            Text("Toggle popup")
+            Text(label)
             Spacer()
             Button(action: { recorder.startRecording() }) {
                 Text(recorder.isRecording ? "Press shortcut…" : displayText)

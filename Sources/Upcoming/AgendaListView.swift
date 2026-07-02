@@ -112,6 +112,9 @@ struct AgendaListView: View {
     /// Starts a new event on the given day (hover-revealed "+" in each day
     /// header). Created in Calendar and opened there to finish editing.
     var onAddEvent: (Date) -> Void = { _ in }
+    /// id of the next joinable meeting while it's imminent/ongoing; that
+    /// row's video icon becomes the filled Join capsule.
+    var joinHighlightID: String? = nil
 
     @Environment(\.colorScheme) private var colorScheme
     /// Count-pills the user clicked open, keyed day+calendarID. Cleared
@@ -266,7 +269,8 @@ struct AgendaListView: View {
             ForEach(section.timed) { event in
                 EventRowView(
                     event: event, day: section.day,
-                    now: now, calendar: calendar, palette: palette
+                    now: now, calendar: calendar, palette: palette,
+                    isJoinImminent: event.id == joinHighlightID
                 )
                 .contentShape(Rectangle())
                 .onTapGesture { open(event) }

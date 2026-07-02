@@ -8,6 +8,7 @@ public final class AppConfig: ObservableObject {
         static let hiddenCalendarIDs = "hiddenCalendarIDs"
         static let notificationLeadMinutes = "notificationLeadMinutes"
         static let globalShortcut = "globalShortcut"
+        static let joinShortcut = "joinShortcut"
         static let combineAllDayPills = "combineAllDayPills"
     }
 
@@ -44,6 +45,19 @@ public final class AppConfig: ObservableObject {
         }
     }
 
+    /// Global hotkey that joins the next video meeting. Same never-set vs
+    /// cleared semantics as `globalShortcut`; default ⌘⇧J.
+    @Published public var joinShortcut: GlobalShortcut? {
+        didSet {
+            if let shortcut = joinShortcut,
+               let data = try? JSONEncoder().encode(shortcut) {
+                defaults.set(data, forKey: Key.joinShortcut)
+            } else {
+                defaults.set(Data(), forKey: Key.joinShortcut)
+            }
+        }
+    }
+
     /// ≥2 all-day events from the same calendar on one day collapse into
     /// a single count-pill in the agenda (default on). The rule only ever
     /// hits noisy calendars; single pills are never touched.
@@ -63,6 +77,13 @@ public final class AppConfig: ObservableObject {
                 : try? JSONDecoder().decode(GlobalShortcut.self, from: data)
         } else {
             self.globalShortcut = .defaultShortcut
+        }
+        if let data = defaults.data(forKey: Key.joinShortcut) {
+            self.joinShortcut = data.isEmpty
+                ? nil
+                : try? JSONDecoder().decode(GlobalShortcut.self, from: data)
+        } else {
+            self.joinShortcut = .defaultJoinShortcut
         }
     }
 }

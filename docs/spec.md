@@ -32,7 +32,7 @@ Status: v0.1.0-skelet gebouwd (2026-06-11); dit document blijft de levende wense
   - **Sleep/wake-backstop** (NSWorkspace.didWakeNotification + trage timer) uit Uncommitted's RepoStore — zelfde patroon voor kalender-refresh naast `EKEventStoreChanged`.
   - Eventuele detail-popover later: Uncommitted's `HoverDetailWindow` (NSPanel als child window, `CardWithArrowShape`) ligt klaar.
   - macOS 14+ (EventKit `requestFullAccessToEvents`).
-- **Menu bar item: alleen icoon** — kalender-icoon met dagnummer, minimale breedte.
+- **Menu bar item: alleen icoon, géén dagnummer** — minimale breedte; macOS' eigen datum/tijd-weergave in de menubar dekt de datum al (dagnummer-wens geschrapt 2026-07-02).
 - **Read-only.** Kijken + doorklikken; wijzigen doe je in Calendar.app.
 - **Geen zoekveld.** Zoeken is Calendar.app's werk.
 - **Geen Reminders.** Puur calendar.
@@ -50,6 +50,7 @@ Status: v0.1.0-skelet gebouwd (2026-06-11); dit document blijft de levende wense
 - **Teams-links openen direct in de Teams-app** via het `msteams:`-scheme (alleen corporate `teams.microsoft.com`-joins; browser-fallback als Teams niet geïnstalleerd is, `teams.live.com` blijft browser).
 - **Settings = SwiftUI `Settings`-scene met tabs** (opzet van Uncommitted): General (launch at login via SMAppService, hotkey-recorder), Calendars (per-kalender toggles, gegroepeerd per account), About.
 - **Globale hotkey om de popup te togglen, default ⌘⇧C** — Carbon `RegisterEventHotKey` (Uncommitted's HotkeyManager), instelbaar/wisbaar in Settings → General.
+- **Join next meeting (2026-07-02):** één selectieregel (`NextMeeting`) voor drie oppervlakken — globale hotkey (default ⌘⇧J, tweede recorder in Settings), right-click-menu-item "Join: titel (tijd)" op het menubar-icoon, en de agenda-rij waarvan het camera-icoon binnen het window uitgroeit tot een gevulde "Join · N min"-capsule. Regel: een upcoming call die binnen 10 min start wint van een lopende (back-to-back-geval), anders de lopende (meest recent gestart). De 10 min staat bewust vast, geen setting. De hotkey joint alléén lopend/imminent — valt de eerstvolgende buiten het window, dan een notificatie "Next: titel, tomorrow at 11:00" mét Join-actie (bewust vroeg joinen blijft één tik); helemaal niets → "No upcoming video calls" (stil falen leest als kapotte hotkey). Het menu-item toont de eerstvolgende wel gewoon — daar zie je wat je aanklikt.
 - **Footer onderin de popup** (Uncommitted's patroon): gear-icoon → Settings, Quit rechts.
 
 ## Later (niet MVP)

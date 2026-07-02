@@ -32,8 +32,12 @@ adds wishes.
   Settings), notifications X min (default 1, dropdown in Settings) before
   events with a video-call link with Join action + tap-to-join
   (NotificationScheduler; rescheduled wholesale on EventKit changes,
-  settings changes, wake, and a 6h timer; 48h horizon), tabbed Settings
-  via the SwiftUI `Settings` scene (General: shortcut + notifications +
+  settings changes, wake, and a 6h timer; 48h horizon),
+  join-next-meeting (`NextMeeting` in Core, one selection rule for three
+  surfaces: hotkey ⌘⇧J, right-click menu item, Join capsule in the agenda
+  row; upcoming call within 10 min beats ongoing, else
+  most-recently-started ongoing, else next future), tabbed Settings
+  via the SwiftUI `Settings` scene (General: shortcuts + notifications +
   launch at login; Calendars: per-calendar toggles grouped by account;
   About). App lifecycle is SwiftUI App (`UpcomingApp.swift`, no
   main.swift) with NSApplicationDelegateAdaptor — Uncommitted's setup.
@@ -44,7 +48,6 @@ adds wishes.
   extension gets seconds-slow after sustained scrolling. Re-opening the
   popup resets a grown window to the initial size; that also keeps
   LazyVStack scrollTo height estimation accurate.
-- Not built yet (spec'd): day-number-in-icon menu bar glyph, app icon.
 
 ## Build & install
 
@@ -88,18 +91,13 @@ Three SPM targets (pattern copied from `~/src/uncommitted`):
 ## Roadmap (rough order)
 
 1. Settings cleanup (layout/labels/ordering of the tabs).
-2. Menu bar glyph with day number. (App icon done: Resources/
-   make-icon.swift — Uncommitted's background recipe + palette, calendar
-   card glyph with punched dot grid, three dots glowing in the palette
-   colours.)
-3. README update/improve (exists but predates most of the feature work).
-4. Signed release binaries: release.sh staat (Uncommitted's pipeline:
-   universal build, notarize, staple, gh release; credentials in
-   .env.local, dry-run geverifieerd 2026-06-12) — eerste echte release
-   nog draaien.
-5. Distribution via GitHub: Sparkle-dependency + appcast activeren
-   (release.sh heeft de sectie al, guarded). Repo bestaat:
-   github.com/thimo/upcoming (private).
+2. README update/improve (exists but predates most of the feature work).
+
+Done: releases + Sparkle auto-update draaien (release.sh, appcast.xml;
+v0.4.1 live). App icon done: Resources/make-icon.swift — Uncommitted's
+background recipe + palette, calendar card glyph with punched dot grid,
+three dots glowing in the palette colours. Menu bar glyph met dagnummer
+geschrapt (2026-07-02): macOS' eigen datum/tijd-weergave dekt dat al.
 
 ## Conventions
 

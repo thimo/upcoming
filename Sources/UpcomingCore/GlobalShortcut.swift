@@ -48,4 +48,12 @@ public struct GlobalShortcut: Codable, Equatable {
         command: true,
         shift: true
     )
+
+    /// Default join-next-meeting shortcut: ⌘⇧J. `kVK_ANSI_J` = 0x26.
+    public static let defaultJoinShortcut = GlobalShortcut(
+        keyCode: 0x26,
+        character: "J",
+        command: true,
+        shift: true
+    )
 }

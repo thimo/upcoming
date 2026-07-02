@@ -41,8 +41,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var keyMonitor: Any?
-    private let hotkeyManager = HotkeyManager()
+    private let hotkeyManager = HotkeyManager(id: 1)
+    private let joinHotkeyManager = HotkeyManager(id: 2)
     private let notificationScheduler = NotificationScheduler()
+    /// Last notification-fetch result (next 48h, declined/hidden already
+    /// filtered); backs the synchronous right-click "Join" menu item.
+    private var joinMenuEvents: [EventItem] = []
     private var subscriptions = Set<AnyCancellable>()
 
     private static let cornerRadius: CGFloat = 10
@@ -88,6 +92,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.hotkeyManager.register(shortcut)
             } else {
                 self?.hotkeyManager.unregister()
+            }
+        }
+        .store(in: &subscriptions)
+
+        // Join-next-meeting hotkey (default ⌘⇧J), same registration dance.
+        joinHotkeyManager.onTrigger = { [weak self] in
+            self?.joinNextMeeting()
+        }
+        config.$joinShortcut.sink { [weak self] shortcut in
+            if let shortcut {
+                self?.joinHotkeyManager.register(shortcut)
+            } else {
+                self?.joinHotkeyManager.unregister()
             }
         }
         .store(in: &subscriptions)
@@ -141,6 +158,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 from: now, to: horizon, hiddenCalendarIDs: hidden
             )
             notificationScheduler.schedule(events: events, leadMinutes: lead)
+            joinMenuEvents = events
+        }
+    }
+
+    /// Join hotkey: open the next joinable video call (NextMeeting's
+    /// selection — the same event the agenda's Join capsule highlights),
+    /// but only while it's ongoing or imminent. Outside that window the
+    /// hotkey means "there's nothing to join *now*": a notification says
+    /// when the next call is, with a Join action for deliberately going
+    /// in early. Fresh fetch, so it works without the popup ever having
+    /// been opened; 7 days is "the next one" for all practical purposes.
+    private func joinNextMeeting() {
+        let hidden = config.hiddenCalendarIDs
+        Task {
+            let now = Date()
+            let horizon = now.addingTimeInterval(7 * 24 * 3600)
+            let events = await calendarService.events(
+                from: now, to: horizon, hiddenCalendarIDs: hidden
+            )
+            let next = NextMeeting.nextJoinable(in: events, now: now)
+            if let next, NextMeeting.isImminent(next, now: now),
+               let url = next.videoCallURL {
+                VideoCallOpener.open(url)
+            } else {
+                // Silent failure would read as a dead hotkey.
+                notificationScheduler.notifyNothingToJoin(next: next)
+            }
         }
     }
 
@@ -187,6 +231,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showContextMenu() {
         guard let button = statusItem?.button else { return }
         let menu = NSMenu()
+        // "Join: Standup (11:00)" when there's a joinable call — evaluated
+        // against the cached 48h fetch at open time, so a passed meeting
+        // never lingers. Makes the join feature findable without knowing
+        // the hotkey.
+        if let event = NextMeeting.nextJoinable(in: joinMenuEvents, now: Date()),
+           let url = event.videoCallURL {
+            let formatter = DateFormatter()
+            formatter.timeStyle = .short
+            formatter.dateStyle = .none
+            let when = event.start <= Date() ? "now" : formatter.string(from: event.start)
+            let join = NSMenuItem(
+                title: "Join: \(event.title) (\(when))",
+                action: #selector(joinFromMenu(_:)),
+                keyEquivalent: ""
+            )
+            join.target = self
+            join.representedObject = url
+            menu.addItem(join)
+            menu.addItem(.separator())
+        }
         let settings = NSMenuItem(
             title: "Settings…",
             action: #selector(openSettings),
@@ -216,6 +280,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // responder-chain selector, but the sanctioned `openSettings`
         // environment value only exists inside SwiftUI views.
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    }
+
+    @objc private func joinFromMenu(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? URL else { return }
+        VideoCallOpener.open(url)
     }
 
     @objc private func quitApp() {

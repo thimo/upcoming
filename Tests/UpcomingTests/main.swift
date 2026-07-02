@@ -250,6 +250,80 @@ expect(
     "merge appends new events and drops boundary-spanning duplicates, order preserved"
 )
 
+// MARK: - NextMeeting
+
+let zoom = URL(string: "https://zoom.us/j/1")
+func call(_ id: String, _ start: Date, _ end: Date) -> EventItem {
+    event(id: id, start: start, end: end, url: zoom)
+}
+let clock = date(2026, 7, 1, 10, 58)
+
+expect(
+    NextMeeting.nextJoinable(
+        in: [
+            call("ongoing", date(2026, 7, 1, 10), date(2026, 7, 1, 11)),
+            call("next", date(2026, 7, 1, 11), date(2026, 7, 1, 12)),
+        ],
+        now: clock
+    )?.id == "next",
+    "back-to-back: upcoming call within the join window beats the ongoing one"
+)
+expect(
+    NextMeeting.nextJoinable(
+        in: [
+            call("ongoing", date(2026, 7, 1, 10), date(2026, 7, 1, 11, 30)),
+            call("later", date(2026, 7, 1, 11, 30), date(2026, 7, 1, 12)),
+        ],
+        now: clock
+    )?.id == "ongoing",
+    "upcoming call beyond the join window loses to the ongoing one"
+)
+expect(
+    NextMeeting.nextJoinable(
+        in: [
+            call("outer", date(2026, 7, 1, 9), date(2026, 7, 1, 12)),
+            call("inner", date(2026, 7, 1, 10, 30), date(2026, 7, 1, 11)),
+        ],
+        now: clock
+    )?.id == "inner",
+    "overlapping ongoing calls: the most recently started wins"
+)
+expect(
+    NextMeeting.nextJoinable(
+        in: [call("tomorrow", date(2026, 7, 2, 9), date(2026, 7, 2, 10))],
+        now: clock
+    )?.id == "tomorrow",
+    "nothing ongoing or imminent: plain next future call"
+)
+expect(
+    NextMeeting.nextJoinable(
+        in: [
+            call("ended", date(2026, 7, 1, 9), date(2026, 7, 1, 10)),
+            event(id: "no-link", start: date(2026, 7, 1, 11), end: date(2026, 7, 1, 12)),
+            event(id: "all-day", start: date(2026, 7, 1), end: date(2026, 7, 2), allDay: true, url: zoom),
+        ],
+        now: clock
+    ) == nil,
+    "ended, link-less and all-day events never qualify"
+)
+
+expect(
+    NextMeeting.isImminent(call("soon", date(2026, 7, 1, 11), date(2026, 7, 1, 12)), now: clock),
+    "call starting within the join window is imminent"
+)
+expect(
+    NextMeeting.isImminent(call("running", date(2026, 7, 1, 10), date(2026, 7, 1, 11)), now: clock),
+    "ongoing call is imminent"
+)
+expect(
+    !NextMeeting.isImminent(call("later", date(2026, 7, 1, 11, 30), date(2026, 7, 1, 12)), now: clock),
+    "call beyond the join window is not imminent"
+)
+expect(
+    !NextMeeting.isImminent(call("done", date(2026, 7, 1, 9), date(2026, 7, 1, 10)), now: clock),
+    "finished call is not imminent"
+)
+
 // MARK: - Result
 
 print("\(passed) passed, \(failed) failed")

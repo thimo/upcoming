@@ -245,6 +245,11 @@ struct EventRowView: View {
     let now: Date
     let calendar: Calendar
     let palette: PillPalette
+    /// True when this event is the next joinable meeting and it's imminent
+    /// or ongoing — the video icon swells into a filled Join capsule (the
+    /// same event the join hotkey would open). Default off, so the hover
+    /// previews keep the plain icon.
+    var isJoinImminent: Bool = false
 
     var body: some View {
         // Dim only today's already-finished events ("already happened"),
@@ -281,7 +286,11 @@ struct EventRowView: View {
                     .frame(height: 15)
             }
             if let url = event.videoCallURL {
-                VideoCallButton(url: url)
+                if isJoinImminent {
+                    JoinCapsuleButton(url: url, start: event.start, now: now)
+                } else {
+                    VideoCallButton(url: url)
+                }
             }
         }
         .background(
@@ -344,6 +353,42 @@ private struct VideoCallButton: View {
                 .background(
                     RoundedRectangle(cornerRadius: interactiveCornerRadius)
                         .fill(Color.accentColor.opacity(isHovered ? 0.15 : 0))
+                        .animation(.easeOut(duration: 0.15), value: isHovered)
+                )
+        }
+        .buttonStyle(.borderless)
+        .onHover { isHovered = $0 }
+        .pointingHandCursor()
+        .help("Join video call")
+    }
+}
+
+/// The video button's urgent form: a filled accent capsule with "Join" and
+/// a countdown while the next joinable meeting is imminent ("Join · 4 min"),
+/// dropping the countdown once it's ongoing. Same height as the icon-only
+/// button so the swap never reflows the row.
+private struct JoinCapsuleButton: View {
+    let url: URL
+    let start: Date
+    let now: Date
+    @State private var isHovered = false
+
+    private var label: String {
+        let minutes = Int((start.timeIntervalSince(now) / 60).rounded(.up))
+        return minutes > 0 ? "Join · \(minutes) min" : "Join"
+    }
+
+    var body: some View {
+        Button {
+            VideoCallOpener.open(url)
+        } label: {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 7)
+                .frame(height: 15)
+                .background(
+                    Capsule().fill(Color.accentColor.opacity(isHovered ? 1.0 : 0.85))
                         .animation(.easeOut(duration: 0.15), value: isHovered)
                 )
         }

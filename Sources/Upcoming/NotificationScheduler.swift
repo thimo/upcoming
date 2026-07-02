@@ -36,6 +36,43 @@ final class NotificationScheduler: NSObject {
         center.setNotificationCategories([meeting])
     }
 
+    /// One-shot notice when the join hotkey finds nothing ongoing or
+    /// imminent — silence would read as a dead hotkey. When a later call
+    /// exists (`next`), the notice says when it is and carries the usual
+    /// Join action, so deliberately going in early stays one tap away.
+    func notifyNothingToJoin(next: EventItem?) {
+        let content = UNMutableNotificationContent()
+        if let next, let url = next.videoCallURL {
+            content.title = "No meeting to join right now"
+            content.body = "Next: \(next.title), \(Self.startPhrase(next.start))"
+            content.categoryIdentifier = Self.meetingCategoryID
+            content.userInfo = [Self.urlInfoKey: url.absoluteString]
+        } else {
+            content.title = "No upcoming video calls"
+            content.body = "None of your upcoming events has a video-call link."
+        }
+        UNUserNotificationCenter.current().add(UNNotificationRequest(
+            identifier: "nothing-to-join",
+            content: content,
+            trigger: nil
+        ))
+    }
+
+    /// "at 11:00" (today), "tomorrow at 11:00", else "Friday at 11:00" —
+    /// the join fetch spans 7 days, so a weekday never ambiguates.
+    private static func startPhrase(_ start: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        let time = formatter.string(from: start)
+        let cal = Calendar.current
+        if cal.isDateInToday(start) { return "at \(time)" }
+        if cal.isDateInTomorrow(start) { return "tomorrow at \(time)" }
+        let weekday = DateFormatter()
+        weekday.dateFormat = "EEEE"
+        return "\(weekday.string(from: start)) at \(time)"
+    }
+
     /// Replaces all pending notifications with ones for `events` (the
     /// caller passes the next ~48h) firing `leadMinutes` before start.
     func schedule(events: [EventItem], leadMinutes: Int) {

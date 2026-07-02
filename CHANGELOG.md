@@ -3,6 +3,18 @@
 User-facing notes for each release. Bullets are curated — not a 1:1
 mapping of commits.
 
+## Unreleased
+
+### New
+- Join your next meeting from anywhere: a global shortcut (default ⌘⇧J,
+  changeable in Settings) opens the ongoing or about-to-start video call
+  directly. When the next call is further out, a notification tells you
+  when it is — with a Join button for going in early. Right-clicking the
+  menu bar icon shows the same "Join: …" action.
+- When that meeting is about to start (within 10 minutes) or already
+  running, its agenda row shows a filled "Join · N min" button in place
+  of the video icon — the same call the shortcut would open.
+
 ## v0.4.1 — 2026-06-30
 
 ### Fixes

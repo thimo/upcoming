@@ -45,9 +45,13 @@ struct ContentView: View {
     /// Day the current sections were loaded for; lets a re-open skip the
     /// refetch when nothing changed (EventKit changes reload on their own).
     @State private var lastLoadedDay: Date?
-    /// Render clock for "already happened today" dimming; bumped on open
-    /// so rows re-dim even when the data didn't change.
+    /// Render clock for "already happened today" dimming and the Join
+    /// capsule's appear/countdown; bumped on open and ticked by `clock`
+    /// so the capsule shows up and counts down while the popup stays open.
     @State private var now = Date()
+    /// 30s tick driving `now` — coarse enough to be free, fine enough for
+    /// a minute-granularity countdown.
+    private let clock = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     /// Day section at the top of the agenda viewport; highlighted in the
     /// grid, and the grid follows it into other months.
     @State private var topVisibleDay: Date?
@@ -226,7 +230,8 @@ struct ContentView: View {
                     // filter of the loaded window, not the live agenda).
                     onSectionAppear: searching ? { _ in } : sectionAppeared,
                     onTopDayChange: searching ? { _ in } : topDayChanged,
-                    onAddEvent: addEvent
+                    onAddEvent: addEvent,
+                    joinHighlightID: joinHighlightID
                 )
             }
 
@@ -237,6 +242,7 @@ struct ContentView: View {
         // the ideal height to the screen), with the agenda list flexing.
         .frame(width: Self.panelWidth)
         .onAppear { reloadAgenda(resetWindow: true, scrollToDay: Date()) }
+        .onReceive(clock) { now = $0 }
         .onChange(of: displayedMonth) { reloadGridDots() }
         .onChange(of: calendarService.changeToken) { reloadAgenda() }
         .onChange(of: config.hiddenCalendarIDs) { reloadAgenda() }
@@ -295,6 +301,15 @@ struct ContentView: View {
                 navigateDay(by: delta)
             }
         }
+    }
+
+    /// The event whose row shows the Join capsule: the next joinable
+    /// meeting, but only while imminent/ongoing — outside that window the
+    /// row keeps its quiet video icon. Same selection as the join hotkey.
+    private var joinHighlightID: String? {
+        guard let next = NextMeeting.nextJoinable(in: windowEvents, now: now),
+              NextMeeting.isImminent(next, now: now) else { return nil }
+        return next.id
     }
 
     /// Arrow-key navigation: scroll the agenda one day forward/backward
