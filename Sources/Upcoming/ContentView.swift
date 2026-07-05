@@ -231,6 +231,7 @@ struct ContentView: View {
                     onSectionAppear: searching ? { _ in } : sectionAppeared,
                     onTopDayChange: searching ? { _ in } : topDayChanged,
                     onAddEvent: addEvent,
+                    onOpenDay: openDay,
                     joinHighlightID: joinHighlightID
                 )
             }
@@ -337,6 +338,13 @@ struct ContentView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             CalendarAppOpener.showEvent(identifier: id)
         }
+    }
+
+    /// Tap on a day-header title: dismiss the popup and open Calendar.app
+    /// on that day.
+    private func openDay(_ day: Date) {
+        AppDelegate.shared?.closePopup()
+        CalendarAppOpener.showDay(day, calendar: calendar)
     }
 
     /// Bottom bar: gear → Settings, Quit on the right (Uncommitted's footer).

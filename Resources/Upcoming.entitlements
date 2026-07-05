@@ -12,5 +12,10 @@
 	     in by build.sh) — without the profile the app fails to launch. -->
 	<key>com.apple.developer.weatherkit</key>
 	<true/>
+	<!-- Clicking a day header drives Calendar.app over AppleScript to
+	     navigate to that date (ical:// has no reliable date-only form).
+	     Under hardened runtime, sending Apple events needs this entitlement. -->
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
 </dict>
 </plist>

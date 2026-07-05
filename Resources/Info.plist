@@ -24,6 +24,8 @@
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Upcoming opens Calendar.app to the day you click in the agenda.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Upcoming shows the calendars you already sync in Calendar.app from your menu bar.</string>
 	<key>NSHighResolutionCapable</key>

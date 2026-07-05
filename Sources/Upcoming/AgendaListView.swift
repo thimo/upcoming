@@ -47,11 +47,19 @@ private struct DaySectionHeader: View {
     let calendar: Calendar
     let now: Date
     let onAdd: () -> Void
+    /// Tap on the title text opens Calendar.app on this day. No button
+    /// chrome — the header keeps looking like a plain label; only the
+    /// pointing-hand cursor hints it's clickable.
+    let onOpenDay: () -> Void
     @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: 6) {
             DayHeaderView(day: day, calendar: calendar, now: now)
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onOpenDay)
+                .pointingHandCursor()
+                .help("Open this day in Calendar")
             Spacer(minLength: 8)
             Button(action: onAdd) {
                 Image(systemName: "plus")
@@ -112,6 +120,8 @@ struct AgendaListView: View {
     /// Starts a new event on the given day (hover-revealed "+" in each day
     /// header). Created in Calendar and opened there to finish editing.
     var onAddEvent: (Date) -> Void = { _ in }
+    /// Opens Calendar.app on the given day (tap on the day-header title).
+    var onOpenDay: (Date) -> Void = { _ in }
     /// id of the next joinable meeting while it's imminent/ongoing; that
     /// row's video icon becomes the filled Join capsule.
     var joinHighlightID: String? = nil
@@ -242,7 +252,8 @@ struct AgendaListView: View {
                 day: section.day,
                 calendar: calendar,
                 now: now,
-                onAdd: { onAddEvent(section.day) }
+                onAdd: { onAddEvent(section.day) },
+                onOpenDay: { onOpenDay(section.day) }
             )
             if !items.isEmpty {
                 FlowLayout(spacing: 3) {
