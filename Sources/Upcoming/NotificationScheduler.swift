@@ -58,13 +58,17 @@ final class NotificationScheduler: NSObject {
         ))
     }
 
-    /// "at 11:00" (today), "tomorrow at 11:00", else "Friday at 11:00" —
-    /// the join fetch spans 7 days, so a weekday never ambiguates.
-    private static func startPhrase(_ start: Date) -> String {
+    private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         formatter.dateStyle = .none
-        let time = formatter.string(from: start)
+        return formatter
+    }()
+
+    /// "at 11:00" (today), "tomorrow at 11:00", else "Friday at 11:00" —
+    /// the join fetch spans 7 days, so a weekday never ambiguates.
+    private static func startPhrase(_ start: Date) -> String {
+        let time = timeFormatter.string(from: start)
         let cal = Calendar.current
         if cal.isDateInToday(start) { return "at \(time)" }
         if cal.isDateInTomorrow(start) { return "tomorrow at \(time)" }
@@ -93,9 +97,10 @@ final class NotificationScheduler: NSObject {
             guard let url = event.videoCallURL else { continue }
             let content = UNMutableNotificationContent()
             content.title = event.title
-            content.body = leadMinutes == 1
-                ? "Starts in 1 minute"
-                : "Starts in \(leadMinutes) minutes"
+            // Absolute time, not "in N minutes": the banner text is a
+            // snapshot and can't count down, so a relative phrase goes
+            // stale while an absolute one never does.
+            content.body = "Starts at \(Self.timeFormatter.string(from: event.start))"
             content.sound = .default
             content.categoryIdentifier = Self.meetingCategoryID
             content.userInfo = [Self.urlInfoKey: url.absoluteString]
