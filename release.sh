@@ -69,21 +69,24 @@ MIN_OS="$(plutil -extract LSMinimumSystemVersion raw Resources/Info.plist)"
 SDK_VERSION="$(xcrun --show-sdk-version)"
 LINK_SDK=(-Xlinker -platform_version -Xlinker macos -Xlinker "$MIN_OS" -Xlinker "$SDK_VERSION")
 
-echo "==> Building arm64"
-swift build -c release --arch arm64 "${LINK_SDK[@]}"
+# One multi-arch build: SwiftPM links the fat binary itself. Do NOT go
+# back to two --arch builds + lipo from .build/<triple>/release: SwiftPM
+# 6.4's swift-build backend writes every configuration to
+# .build/out/Products/Release, so those per-triple paths were stale
+# leftovers — the first 0.6.0 zip shipped an August binary (2026-09-27).
+# Ask SwiftPM for the path instead of hardcoding it.
+echo "==> Building universal (arm64 + x86_64)"
+swift build -c release --arch arm64 --arch x86_64 "${LINK_SDK[@]}"
+BIN_PATH="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
 
-echo "==> Building x86_64"
-swift build -c release --arch x86_64 "${LINK_SDK[@]}"
+echo "==> Running tests"
+"$BIN_PATH/UpcomingTests"
 
-echo "==> Running tests (arm64)"
-.build/arm64-apple-macosx/release/UpcomingTests
-
-echo "==> Creating universal binary"
+echo "==> Universal binary"
 mkdir -p build
-lipo -create -output build/upcoming-universal \
-  .build/arm64-apple-macosx/release/upcoming \
-  .build/x86_64-apple-macosx/release/upcoming
+cp "$BIN_PATH/upcoming" build/upcoming-universal
 lipo -info build/upcoming-universal
+lipo -info build/upcoming-universal | grep -q "x86_64" || { echo "ERROR: not universal" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # Render icon (compiled: shares CalendarGlyph.swift with the app target)
@@ -108,8 +111,8 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp build/Upcoming.icns "$APP/Contents/Resources/Upcoming.icns"
 printf "APPL????" > "$APP/Contents/PkgInfo"
 
-# SPM resource bundle (arm64 build — identical across arches).
-SPM_BUNDLE=".build/arm64-apple-macosx/release/Upcoming_Upcoming.bundle"
+# SPM resource bundle, from the same build output.
+SPM_BUNDLE="$BIN_PATH/Upcoming_Upcoming.bundle"
 if [ -d "$SPM_BUNDLE" ]; then
   cp -R "$SPM_BUNDLE" "$APP/Contents/Resources/"
 fi
