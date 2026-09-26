@@ -4,6 +4,15 @@
         <title>Upcoming</title>
         <item>
             <title>0.6.0</title>
+            <pubDate>Sun, 27 Sep 2026 01:04:02 +0200</pubDate>
+            <link>https://github.com/thimo/upcoming/releases/tag/v0.6.0</link>
+            <sparkle:version>58</sparkle:version>
+            <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/thimo/upcoming/releases/download/v0.6.0/Upcoming-0.6.0.zip" length="3529458" type="application/octet-stream" sparkle:edSignature="NMwY6wwNGi3EUA85wNDyRUy1ozRtN+Svs0NSvrsVGZ6P4KjumW/4FIICBfzWpg4DI4XdiSgYtQyyUZnQWOPwCw=="/>
+        </item>
+        <item>
+            <title>0.6.0</title>
             <pubDate>Sun, 27 Sep 2026 01:01:49 +0200</pubDate>
             <link>https://github.com/thimo/upcoming/releases/tag/v0.6.0</link>
             <sparkle:version>56</sparkle:version>
