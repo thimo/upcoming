@@ -54,7 +54,11 @@ adds wishes.
 - `./build.sh` — release build, runs tests, bundles the `.app`, signs with
   **Developer ID** (NOT ad-hoc — TCC keys the Calendars grant to the
   designated requirement; ad-hoc re-signing invalidates it every rebuild),
-  installs to `~/Applications/Upcoming.app`. Kills a running instance.
+  installs to `/Applications/Upcoming.app` (NOT `~/Applications` — on
+  macOS 27 the menu bar agent, and Bartender on top of it, only manages
+  status items of apps running from `/Applications`; from `~/Applications`
+  the item is parked off-screen once Bartender runs). Kills a running
+  instance.
 - Tests: `.build/release/UpcomingTests` — plain-Swift runner, no XCTest
   (Command Line Tools toolchain has none).
 

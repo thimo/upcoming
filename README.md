@@ -76,7 +76,7 @@ Requires macOS 14 or later.
 ./build.sh
 ```
 
-Builds, tests, signs, and installs to `~/Applications/Upcoming.app`.
+Builds, tests, signs, and installs to `/Applications/Upcoming.app` (not `~/Applications`: on macOS 27 the menu bar agent only manages status items of apps running from `/Applications`).
 Requires the Xcode Command Line Tools (no Xcode needed).
 
 ## Status

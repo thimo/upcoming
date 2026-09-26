@@ -3,6 +3,15 @@
 User-facing notes for each release. Bullets are curated — not a 1:1
 mapping of commits.
 
+## Unreleased
+
+### Fixed
+- macOS 27: the menu bar icon disappeared (parked off-screen, or covered
+  by Bartender's dot) when Bartender was running. The macOS 27 menu bar
+  agent only manages status items of apps running from `/Applications`,
+  so `build.sh` now installs there instead of `~/Applications`. Remove
+  any old copy in `~/Applications` after updating.
+
 ## v0.5.0 — 2026-07-02
 
 ### New

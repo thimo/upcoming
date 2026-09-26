@@ -1,6 +1,11 @@
 #!/bin/bash
 # Build Upcoming, wrap in a .app bundle, sign with a STABLE identity, and
-# install to ~/Applications/Upcoming.app.
+# install to /Applications/Upcoming.app.
+#
+# /Applications, not ~/Applications: on macOS 27 the menu bar agent (and
+# Bartender on top of it) only manages status items of apps running from
+# /Applications. From ~/Applications the item gets parked off-screen as
+# soon as Bartender runs (2026-09-26).
 #
 # Signing identity matters for TCC: macOS keys the Calendars grant to the
 # app's designated requirement. Ad-hoc signing (`--sign -`) produces a
@@ -96,9 +101,8 @@ codesign --force --options runtime \
   --sign "$SIGN_ID" "$APP_STAGING"
 codesign --verify --verbose --deep "$APP_STAGING" 2>&1 | head -5
 
-APP_INSTALL="$HOME/Applications/Upcoming.app"
+APP_INSTALL="/Applications/Upcoming.app"
 echo "==> Installing to $APP_INSTALL"
-mkdir -p "$HOME/Applications"
 # Quit any running instance so the bundle can be replaced cleanly.
 killall -q upcoming 2>/dev/null || true
 sleep 0.2
