@@ -57,8 +57,15 @@ echo "==> Generating app icon"
 swiftc -O Resources/make-icon.swift Sources/Upcoming/CalendarGlyph.swift -o build/make-icon
 build/make-icon build/Upcoming.iconset
 iconutil -c icns build/Upcoming.iconset -o "$APP_STAGING/Contents/Resources/Upcoming.icns"
-# Reviewable preview of the icon, checked into the repo.
-cp build/Upcoming.iconset/icon_512x512.png docs/icon.png
+# Reviewable preview of the icon, checked into the repo. Only rewrite it
+# when the pixels changed: PNG encoding isn't byte-stable across
+# toolchains, and a 7-byte re-encode dirtied the tree on every build.
+NEW_ICON=build/Upcoming.iconset/icon_512x512.png
+sips -s format bmp "$NEW_ICON" --out build/icon-new.bmp >/dev/null
+sips -s format bmp docs/icon.png --out build/icon-old.bmp >/dev/null 2>&1 || true
+if ! cmp -s build/icon-new.bmp build/icon-old.bmp; then
+  cp "$NEW_ICON" docs/icon.png
+fi
 
 # SPM produces a resource bundle next to the binary when a target declares
 # `resources:`. Copy it into the .app so Bundle.module resolves at runtime
