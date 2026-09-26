@@ -31,7 +31,7 @@ Status: v0.1.0-skelet gebouwd (2026-06-11); dit document blijft de levende wense
   - **build.sh van Uncommitted** (release build, iconset via `make-icon.swift` Big Sur-template, bundle, installeer naar `/Applications` — sinds 2026-09-26, niet `~/Applications`: macOS 27 beheert alleen status items van apps die uit `/Applications` draaien, anders parkeert Bartender het icoon offscreen) — maar signing zoals **Clawbridge**: Developer ID "Theodorus Jansen (SCP9WFJV88)", géén ad-hoc — ad-hoc geeft elke build een nieuwe cdhash en dat invalideert de EventKit TCC-grant.
   - **Sleep/wake-backstop** (NSWorkspace.didWakeNotification + trage timer) uit Uncommitted's RepoStore — zelfde patroon voor kalender-refresh naast `EKEventStoreChanged`.
   - Eventuele detail-popover later: Uncommitted's `HoverDetailWindow` (NSPanel als child window, `CardWithArrowShape`) ligt klaar.
-  - macOS 14+ (EventKit `requestFullAccessToEvents`).
+  - macOS 15+ (sinds 2026-09-27; was 14 voor EventKit `requestFullAccessToEvents`. 15 is nodig voor `.restorationBehavior`/`.defaultLaunchBehavior` op de Settings-scene, die op macOS 27 anders bij elke launch opent).
 - **Menu bar item: alleen icoon, géén dagnummer** — minimale breedte; macOS' eigen datum/tijd-weergave in de menubar dekt de datum al (dagnummer-wens geschrapt 2026-07-02).
 - **Read-only.** Kijken + doorklikken; wijzigen doe je in Calendar.app.
 - **Geen zoekveld.** Zoeken is Calendar.app's werk.

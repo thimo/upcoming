@@ -11,6 +11,15 @@ mapping of commits.
   agent only manages status items of apps running from `/Applications`,
   so `build.sh` now installs there instead of `~/Applications`. Remove
   any old copy in `~/Applications` after updating.
+- macOS 27: the Settings window no longer opens by itself at login or
+  when the running app is launched a second time (Spotlight, `open -a`).
+  SwiftUI answered the launch-time "open untitled" request, the reopen
+  event, and window restoration by showing its only scene; all three are
+  now declined.
+
+### Changed
+- Requires macOS 15 or later (was 14). The scene modifiers that keep the
+  Settings window from showing itself on macOS 27 need it.
 
 ## v0.5.0 — 2026-07-02
 

@@ -20,7 +20,16 @@ cd "$(dirname "$0")"
 SIGN_ID="${UPCOMING_SIGN_ID:-Developer ID Application: Theodorus Jansen (SCP9WFJV88)}"
 
 echo "==> Building release binary"
-swift build -c release
+# SwiftPM 6.4's default swift-build backend hands the linker no SDK
+# version, so LC_BUILD_VERSION ends up with sdk == deployment target
+# (e.g. 15.0) instead of the real SDK — and macOS gates new system
+# behaviour on the SDK an app was linked against. Pass it explicitly;
+# ld takes this over its default (2026-09-27). Deployment target comes
+# from Info.plist so there is one place to bump it (with Package.swift).
+MIN_OS="$(plutil -extract LSMinimumSystemVersion raw Resources/Info.plist)"
+SDK_VERSION="$(xcrun --show-sdk-version)"
+swift build -c release \
+  -Xlinker -platform_version -Xlinker macos -Xlinker "$MIN_OS" -Xlinker "$SDK_VERSION"
 
 BIN_SRC=".build/release/upcoming"
 if [ ! -x "$BIN_SRC" ]; then

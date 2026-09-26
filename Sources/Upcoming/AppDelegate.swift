@@ -75,6 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // LSUIElement in Info.plist covers bundle launches; .accessory also
         // covers running the bare binary during development.
         NSApp.setActivationPolicy(.accessory)
+        installReopenHandler()
         setupStatusItem()
         setupPanel()
         calendarService.requestAccess()
@@ -195,6 +196,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             showPopup(from: button)
         }
+    }
+
+    // MARK: - Launch requests (macOS 27 Settings-at-launch)
+
+    /// A LaunchServices launch (login item, Finder, `open`) ends with an
+    /// "open untitled" request. Our only SwiftUI scene is `Settings`, and
+    /// on macOS 27 SwiftUI answers that request by showing it — so every
+    /// login opened the Settings window (Uncommitted pinned this down,
+    /// 2026-09-26). A menu bar app has nothing to open; decline both the
+    /// launch-time request and the reopen sent by a second launch.
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        false
+    }
+
+    /// The delegate answer above is not enough for the reopen case: on
+    /// macOS 27 SwiftUI still shows the Settings scene when a second
+    /// launch (`open -a`, Spotlight, a relaunch racing the old instance)
+    /// sends the `rapp` Apple event to a running copy. So take the event
+    /// away from AppKit altogether: our handler replaces the one AppKit
+    /// registered in `finishLaunching`, and nothing downstream runs.
+    private func installReopenHandler() {
+        NSAppleEventManager.shared().setEventHandler(
+            self,
+            andSelector: #selector(handleReopenEvent(_:withReply:)),
+            forEventClass: AEEventClass(kCoreEventClass),
+            andEventID: AEEventID(kAEReopenApplication)
+        )
+    }
+
+    @objc private func handleReopenEvent(_ event: NSAppleEventDescriptor, withReply reply: NSAppleEventDescriptor) {
+        // Menu bar app: nothing to reopen. Swallowed on purpose.
     }
 
     // MARK: - Status item

@@ -91,6 +91,14 @@ Three SPM targets (pattern copied from `~/src/uncommitted`):
 4. **Declined meetings are filtered out** in CalendarService (spec).
 5. All-day EKEvents end at the *next* midnight — `EventGrouping` clamps
    with a -1s nudge so they don't leak an extra day. Tests cover this.
+6. **Settings must not show itself at launch** (macOS 27, 2026-09-27,
+   same fix as Uncommitted). Three paths open the only SwiftUI scene:
+   the launch-time "open untitled" request (`applicationShouldOpenUntitledFile`
+   → false), the `rapp` reopen Apple event from a second launch
+   (`installReopenHandler` replaces AppKit's handler; the delegate answer
+   alone is ignored), and window restoration
+   (`.restorationBehavior(.disabled)` + `.defaultLaunchBehavior(.suppressed)`
+   in `UpcomingApp.swift` — the reason the deployment target is macOS 15).
 
 ## Roadmap (rough order)
 

@@ -63,11 +63,17 @@ echo "==> Version $VERSION (build $BUILD_NUMBER)"
 # ---------------------------------------------------------------------------
 # Build universal binary (separate arches + lipo)
 # ---------------------------------------------------------------------------
+# Same linker SDK stamp as build.sh: without it swift-build records
+# sdk == deployment target in LC_BUILD_VERSION.
+MIN_OS="$(plutil -extract LSMinimumSystemVersion raw Resources/Info.plist)"
+SDK_VERSION="$(xcrun --show-sdk-version)"
+LINK_SDK=(-Xlinker -platform_version -Xlinker macos -Xlinker "$MIN_OS" -Xlinker "$SDK_VERSION")
+
 echo "==> Building arm64"
-swift build -c release --arch arm64
+swift build -c release --arch arm64 "${LINK_SDK[@]}"
 
 echo "==> Building x86_64"
-swift build -c release --arch x86_64
+swift build -c release --arch x86_64 "${LINK_SDK[@]}"
 
 echo "==> Running tests (arm64)"
 .build/arm64-apple-macosx/release/UpcomingTests

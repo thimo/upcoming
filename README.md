@@ -68,7 +68,7 @@ Grab the notarized build from
 [Releases](https://github.com/thimo/upcoming/releases), unzip, drop
 `Upcoming.app` in Applications, and grant Calendar access on first launch.
 
-Requires macOS 14 or later.
+Requires macOS 15 or later.
 
 ## Build from source
 
