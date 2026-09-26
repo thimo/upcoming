@@ -3,7 +3,7 @@
 User-facing notes for each release. Bullets are curated — not a 1:1
 mapping of commits.
 
-## Unreleased
+## v0.6.0 — 2026-09-27
 
 ### Fixed
 - macOS 27: the menu bar icon disappeared (parked off-screen, or covered
